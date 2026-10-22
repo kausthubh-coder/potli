@@ -11,7 +11,7 @@ potli ships from `main` on `kausthubh-coder/potli` (public) to one Cloudflare ac
 |---|---|---|
 | `main` | a PR, CI green (`.github/workflows/ci.yml`: `bun run build`, then `bun run check`), squash merge | every change |
 | production D1 `potli` | `bunx wrangler d1 migrations apply DB --remote` | the change added a file under `drizzle/`; always before the deploy |
-| Worker `potli` (site and npm API) | `bun run build && bunx wrangler deploy`, from the merge commit | the change touched `src/`, `public/`, `drizzle/`, `wrangler.jsonc`, `vite.config.ts`, `package.json` or `bun.lock` |
+| Worker `potli` (site and npm API) | `bun run build && bunx wrangler deploy`, from the merge commit | the change touched `src/`, `public/`, `drizzle/`, `wrangler.jsonc`, `vite.config.ts`, `bun.lock` or the dependencies in `package.json` |
 | Worker secrets | `bunx wrangler secret put <NAME>`, run by me | the change added a name to `.dev.vars.example` |
 | main checkout | `git pull --ff-only` | every ship |
 
