@@ -417,3 +417,178 @@ describe("publish", () => {
 		});
 	});
 });
+
+describe("whoami", () => {
+	it("returns the token user's username", async () => {
+		const me = await seedUser("whoami");
+		const res = await registry.request("/-/whoami", { headers: { Authorization: `Bearer ${me.token}` } });
+		expect(res.status).toBe(200);
+		expect(await res.json()).toEqual({ username: "whoami" });
+	});
+
+	it("needs a valid token", async () => {
+		const res = await registry.request("http://localhost:3455/-/whoami", {
+			headers: { Authorization: `Bearer ${generateToken()}` },
+		});
+		expect(res.status).toBe(401);
+		expect(await res.json()).toEqual({
+			error:
+				"You need a potli token to see who you are. Create one on the potli website and add it to .npmrc as //localhost:3455/:_authToken=<token>",
+		});
+	});
+});
+
+describe("dist-tags", () => {
+	function tagRequest(method: "PUT" | "DELETE", path: string, token: string, version?: string) {
+		return registry.request(path, {
+			method,
+			headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+			body: version === undefined ? undefined : JSON.stringify(version),
+		});
+	}
+
+	it("lists, sets and deletes tags the way npm dist-tag does", async () => {
+		const owner = await seedUser("tagger");
+		await put("/@tagger%2fpkg", await publishBody("@tagger/pkg", "1.0.0", randomTarball()), owner.token);
+		await put("/@tagger%2fpkg", await publishBody("@tagger/pkg", "1.1.0", randomTarball()), owner.token);
+
+		const set = await tagRequest("PUT", "/-/package/@tagger%2fpkg/dist-tags/stable", owner.token, "1.0.0");
+		expect(set.status).toBe(201);
+		expect(await set.json()).toEqual({ ok: true });
+
+		const list = await registry.request("/-/package/@tagger%2fpkg/dist-tags");
+		expect(await list.json()).toEqual({ latest: "1.1.0", stable: "1.0.0" });
+		const packument = await (await registry.request("/@tagger%2fpkg")).json<Record<string, unknown>>();
+		expect(packument["dist-tags"]).toEqual({ latest: "1.1.0", stable: "1.0.0" });
+
+		const removed = await tagRequest("DELETE", "/-/package/@tagger%2fpkg/dist-tags/stable", owner.token);
+		expect(removed.status).toBe(200);
+		expect(await removed.json()).toEqual({ ok: true });
+		expect(await (await registry.request("/-/package/@tagger%2fpkg/dist-tags")).json()).toEqual({
+			latest: "1.1.0",
+		});
+
+		const again = await tagRequest("DELETE", "/-/package/@tagger%2fpkg/dist-tags/stable", owner.token);
+		expect(again.status).toBe(404);
+		expect(await again.json()).toEqual({ error: '@tagger/pkg has no "stable" tag.' });
+	});
+
+	it("never deletes latest and only tags published versions", async () => {
+		const owner = await seedUser("keeplatest");
+		await put(
+			"/@keeplatest%2fpkg",
+			await publishBody("@keeplatest/pkg", "1.0.0", randomTarball()),
+			owner.token,
+		);
+
+		const res = await tagRequest("DELETE", "/-/package/@keeplatest%2fpkg/dist-tags/latest", owner.token);
+		expect(res.status).toBe(400);
+		expect(await res.json()).toEqual({
+			error:
+				"The latest tag can't be deleted. Point it at another version with: npm dist-tag add @keeplatest/pkg@<version> latest",
+		});
+
+		const unknown = await tagRequest(
+			"PUT",
+			"/-/package/@keeplatest%2fpkg/dist-tags/next",
+			owner.token,
+			"9.0.0",
+		);
+		expect(unknown.status).toBe(404);
+		expect(await unknown.json()).toEqual({
+			error: "@keeplatest/pkg@9.0.0 is not published. Tag a version that is.",
+		});
+
+		const semverTag = await tagRequest(
+			"PUT",
+			"/-/package/@keeplatest%2fpkg/dist-tags/1.0.0",
+			owner.token,
+			"1.0.0",
+		);
+		expect(semverTag.status).toBe(400);
+		expect(await semverTag.json()).toEqual({
+			error: '"1.0.0" can\'t be a tag name. Use a name like beta or next.',
+		});
+
+		expect(await (await registry.request("/-/package/@keeplatest%2fpkg/dist-tags")).json()).toEqual({
+			latest: "1.0.0",
+		});
+	});
+
+	it("only lets the scope's owner change tags", async () => {
+		const owner = await seedUser("tagowner");
+		const other = await seedUser("tagother");
+		await put("/@tagowner%2fpkg", await publishBody("@tagowner/pkg", "1.0.0", randomTarball()), owner.token);
+
+		const res = await tagRequest("PUT", "/-/package/@tagowner%2fpkg/dist-tags/beta", other.token, "1.0.0");
+		expect(res.status).toBe(403);
+		expect(await res.json()).toEqual({
+			error: "The scope @tagowner belongs to another user. Use a scope you own, such as your own @username.",
+		});
+
+		const noToken = await registry.request("/-/package/@tagowner%2fpkg/dist-tags/beta", {
+			method: "PUT",
+			body: JSON.stringify("1.0.0"),
+		});
+		expect(noToken.status).toBe(401);
+
+		expect(await (await registry.request("/-/package/@tagowner%2fpkg/dist-tags")).json()).toEqual({
+			latest: "1.0.0",
+		});
+	});
+});
+
+describe("search", () => {
+	it("finds packages by name or description in npm's response shape", async () => {
+		const owner = await seedUser("searcher");
+		const body = await publishBody("@searcher/needle", "1.2.0", randomTarball(), {
+			description: "Finds things",
+		});
+		body.versions["1.2.0"] = { ...body.versions["1.2.0"], ...{ keywords: ["find"] } };
+		await put("/@searcher%2fneedle", body, owner.token);
+		await put(
+			"/@searcher%2fhay",
+			await publishBody("@searcher/hay", "0.1.0", randomTarball(), { description: "Has a needle in it" }),
+			owner.token,
+		);
+		await put(
+			"/@searcher%2fother",
+			await publishBody("@searcher/other", "0.1.0", randomTarball(), { description: "Unrelated" }),
+			owner.token,
+		);
+
+		const res = await registry.request("https://potli.example.dev/-/v1/search?text=NEEDLE&size=20");
+		expect(res.status).toBe(200);
+		const result = await res.json<{ objects: { package: Record<string, unknown> }[]; total: number }>();
+		expect(result.total).toBe(2);
+		expect(result.objects.map((object) => object.package.name)).toEqual([
+			"@searcher/hay",
+			"@searcher/needle",
+		]);
+		expect(result.objects[1]).toEqual({
+			package: {
+				name: "@searcher/needle",
+				scope: "searcher",
+				version: "1.2.0",
+				description: "Finds things",
+				keywords: ["find"],
+				date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+				links: { npm: "https://potli.example.dev/package/@searcher/needle" },
+				publisher: { username: "searcher" },
+				maintainers: [{ username: "searcher" }],
+			},
+			score: { final: 1, detail: { quality: 1, popularity: 1, maintenance: 1 } },
+			searchScore: 1,
+		});
+
+		const page = await (await registry.request("/-/v1/search?text=searcher&size=1&from=1")).json<{
+			objects: { package: { name: string } }[];
+			total: number;
+		}>();
+		expect(page.total).toBe(3);
+		expect(page.objects.map((object) => object.package.name)).toEqual(["@searcher/needle"]);
+
+		const none = await (await registry.request("/-/v1/search?text=100%25_")).json();
+		expect(none).toMatchObject({ objects: [], total: 0 });
+	});
+});

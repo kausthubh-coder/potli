@@ -1,13 +1,14 @@
 import { env, waitUntil } from "cloudflare:workers";
-import { and, asc, eq, sql } from "drizzle-orm";
-import { Hono } from "hono";
+import { and, asc, count, eq, or, sql } from "drizzle-orm";
+import { type Context, Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { getPath } from "hono/utils/url";
 
 import { db } from "#/db";
-import { distTags, downloads, packages, versions } from "#/db/schema";
+import { distTags, downloads, packages, scopes, user, versions } from "#/db/schema";
+import { authenticate, scopeOwnershipError, unauthorizedMessage } from "./registry.auth";
 import { decodeScopedSlash, type PackageName, parsePackageName, tarballUrl } from "./registry.names";
-import { isRecord, MAX_PUBLISH_BODY_BYTES, publish } from "./registry.publish";
+import { isRecord, MAX_PUBLISH_BODY_BYTES, publish, SEMVER } from "./registry.publish";
 
 // The npm registry API. npm, pnpm, bun and yarn call these routes; the website never does.
 // Protocol notes: docs/registry-protocol.md. Bindings come from `cloudflare:workers` (not
@@ -134,6 +135,170 @@ function countDownload(packageName: string) {
 		})
 		.run();
 }
+
+// `npm whoami`
+registry.get("/-/whoami", async (c) => {
+	const tokenUser = await authenticate(c.req.header("Authorization"));
+	if (!tokenUser) return c.json({ error: unauthorizedMessage(c.req.url, "see who you are") }, 401);
+	if (!tokenUser.username) {
+		return c.json({ error: "Your account has no username yet. Sign in on the potli website again." }, 404);
+	}
+	return c.json({ username: tokenUser.username });
+});
+
+// `npm dist-tag ls|add|rm`. npm reads the tags before it changes one.
+const DIST_TAGS = `/-/package${PKG}/dist-tags`;
+
+registry.get(DIST_TAGS, async (c) => {
+	const name = packageNameFrom(c.req.param("scope"), c.req.param("name"));
+	if (!name) return c.json(NOT_FOUND, 404);
+	const [[pkg], tagRows] = await db.batch([
+		db.select({ name: packages.name }).from(packages).where(eq(packages.name, name.full)),
+		db.select().from(distTags).where(eq(distTags.packageName, name.full)),
+	]);
+	if (!pkg) return c.json(NOT_FOUND, 404);
+	return c.json(Object.fromEntries(tagRows.map((row) => [row.tag, row.version])));
+});
+
+// Returns the package if the token's user may change its tags, else the error response.
+async function authorizeTagChange(c: Context, scope: string, base: string): Promise<PackageName | Response> {
+	const tokenUser = await authenticate(c.req.header("Authorization"));
+	if (!tokenUser) return c.json({ error: unauthorizedMessage(c.req.url, "change dist-tags") }, 401);
+	const name = packageNameFrom(scope, base);
+	const pkg =
+		name &&
+		(await db.select({ name: packages.name }).from(packages).where(eq(packages.name, name.full)).get());
+	if (!name || !pkg) return c.json(NOT_FOUND, 404);
+	const ownershipError = await scopeOwnershipError(tokenUser.id, name.scope);
+	if (ownershipError) return c.json({ error: ownershipError }, 403);
+	return name;
+}
+
+function touchPackage(name: PackageName) {
+	return db.update(packages).set({ updatedAt: new Date() }).where(eq(packages.name, name.full));
+}
+
+// The body is the version as a JSON string: `"1.2.0"`.
+registry.put(`${DIST_TAGS}/:tag`, async (c) => {
+	const name = await authorizeTagChange(c, c.req.param("scope"), c.req.param("name"));
+	if (name instanceof Response) return name;
+	const tag = c.req.param("tag");
+	if (SEMVER.test(tag) || encodeURIComponent(tag) !== tag) {
+		return c.json({ error: `"${tag}" can't be a tag name. Use a name like beta or next.` }, 400);
+	}
+
+	const version: unknown = await c.req.json().catch(() => null);
+	if (typeof version !== "string") {
+		return c.json({ error: 'Send the version as a JSON string, like "1.2.0".' }, 400);
+	}
+	const published = await db
+		.select({ version: versions.version })
+		.from(versions)
+		.where(and(eq(versions.packageName, name.full), eq(versions.version, version)))
+		.get();
+	if (!published) {
+		return c.json({ error: `${name.full}@${version} is not published. Tag a version that is.` }, 404);
+	}
+
+	await db.batch([
+		db
+			.insert(distTags)
+			.values({ packageName: name.full, tag, version })
+			.onConflictDoUpdate({ target: [distTags.packageName, distTags.tag], set: { version } }),
+		touchPackage(name),
+	]);
+	return c.json({ ok: true }, 201);
+});
+
+registry.delete(`${DIST_TAGS}/:tag`, async (c) => {
+	const name = await authorizeTagChange(c, c.req.param("scope"), c.req.param("name"));
+	if (name instanceof Response) return name;
+	const tag = c.req.param("tag");
+	// Clients install `latest` when no version is asked for, so it must always exist.
+	if (tag === "latest") {
+		return c.json(
+			{
+				error: `The latest tag can't be deleted. Point it at another version with: npm dist-tag add ${name.full}@<version> latest`,
+			},
+			400,
+		);
+	}
+
+	const [deleted] = await db.batch([
+		db
+			.delete(distTags)
+			.where(and(eq(distTags.packageName, name.full), eq(distTags.tag, tag)))
+			.returning({ tag: distTags.tag }),
+		touchPackage(name),
+	]);
+	if (deleted.length === 0) return c.json({ error: `${name.full} has no "${tag}" tag.` }, 404);
+	return c.json({ ok: true });
+});
+
+// `npm search`: a plain LIKE over names and descriptions, in npm's response shape. There is no
+// ranking yet, so every result scores 1.
+registry.get("/-/v1/search", async (c) => {
+	const text = (c.req.query("text") ?? "").trim();
+	const size = Math.min(Math.max(Number.parseInt(c.req.query("size") ?? "", 10) || 20, 1), 250);
+	const from = Math.max(Number.parseInt(c.req.query("from") ?? "", 10) || 0, 0);
+	const pattern = `%${text.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
+	const matches = or(
+		sql`${packages.name} LIKE ${pattern} ESCAPE '\\'`,
+		sql`${packages.description} LIKE ${pattern} ESCAPE '\\'`,
+	);
+
+	const [rows, [{ total }]] = await db.batch([
+		db
+			.select({
+				name: packages.name,
+				scope: packages.scope,
+				description: packages.description,
+				version: versions.version,
+				manifest: versions.manifest,
+				publishedAt: versions.publishedAt,
+				owner: user.username,
+			})
+			.from(packages)
+			.innerJoin(scopes, eq(scopes.name, packages.scope))
+			.innerJoin(user, eq(user.id, scopes.ownerId))
+			.leftJoin(distTags, and(eq(distTags.packageName, packages.name), eq(distTags.tag, "latest")))
+			.leftJoin(
+				versions,
+				and(eq(versions.packageName, packages.name), eq(versions.version, distTags.version)),
+			)
+			.where(matches)
+			.orderBy(asc(packages.name))
+			.limit(size)
+			.offset(from),
+		db.select({ total: count() }).from(packages).where(matches),
+	]);
+
+	const origin = new URL(c.req.url).origin;
+	return c.json({
+		objects: rows.map((row) => {
+			const keywords =
+				isRecord(row.manifest) && Array.isArray(row.manifest.keywords) ? row.manifest.keywords : [];
+			const people = row.owner ? [{ username: row.owner }] : [];
+			return {
+				package: {
+					name: row.name,
+					scope: row.scope,
+					version: row.version ?? undefined,
+					description: row.description ?? undefined,
+					keywords,
+					date: row.publishedAt?.toISOString(),
+					links: { npm: `${origin}/package/${row.name}` },
+					publisher: people[0],
+					maintainers: people,
+				},
+				score: { final: 1, detail: { quality: 1, popularity: 1, maintenance: 1 } },
+				searchScore: 1,
+			};
+		}),
+		total,
+		time: new Date().toUTCString(),
+	});
+});
 
 registry.notFound((c) => c.json(NOT_FOUND, 404));
 

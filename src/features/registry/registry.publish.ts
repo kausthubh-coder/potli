@@ -13,7 +13,7 @@ export const MAX_TARBALL_BYTES = 10 * 1024 * 1024;
 export const MAX_PUBLISH_BODY_BYTES = 16 * 1024 * 1024;
 
 // semver.org's regex for a valid version.
-const SEMVER =
+export const SEMVER =
 	/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/;
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
