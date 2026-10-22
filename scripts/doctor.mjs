@@ -1,9 +1,10 @@
 // Read-only health check for this checkout. Run it before trusting a failure.
 // Prints one line per check and the command that fixes each problem.
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { createConnection } from "node:net";
 import { join, resolve } from "node:path";
+import { pendingMigrations } from "./local-d1.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 const sh = (cmd) => {
@@ -39,6 +40,20 @@ check(
 	`BETTER_AUTH_URL matches PORT ${port}`,
 	"bun run setup",
 );
+// Two setups started at the same moment can both pick a port before either writes it down.
+const sharing = sh("git worktree list --porcelain")
+	.split("\n")
+	.filter((line) => line.startsWith("worktree "))
+	.map((line) => resolve(line.slice("worktree ".length)))
+	.filter((dir) => {
+		const env = join(dir, ".env.local");
+		return dir !== root && existsSync(env) && get(readFileSync(env, "utf8"), "PORT") === port;
+	});
+check(
+	sharing.length === 0,
+	`PORT ${port} is not claimed by another worktree${sharing.length ? ` (${sharing.join(", ")} has it)` : ""}`,
+	"bun run setup",
+);
 check(
 	!/(potli\.|workers\.dev|kausthubh\.dev)/.test(vars),
 	"dev env points at localhost, not production",
@@ -48,8 +63,21 @@ if (!get(vars, "GITHUB_CLIENT_ID") || !get(vars, "GITHUB_CLIENT_SECRET")) {
 	warn("GitHub OAuth keys missing in .dev.vars: sign-in won't work (registry and pages still do)");
 }
 
-const pending = sh("bunx wrangler d1 migrations list DB --local");
-check(/No migrations to apply/i.test(pending), "local D1 has every migration", "bun run db:migrate");
+const pending = await pendingMigrations(root);
+check(
+	pending
+		? pending.length === 0
+		: /No migrations to apply/i.test(sh("bunx wrangler d1 migrations list DB --local")),
+	`local D1 has every migration${pending?.length ? ` (missing ${pending.join(", ")})` : ""}`,
+	"bun run db:migrate",
+);
+
+const link = join(root, ".claude", "skills");
+check(
+	existsSync(link) && realpathSync(link) === realpathSync(join(root, ".agents", "skills")),
+	".claude/skills links to .agents/skills",
+	"bun run setup",
+);
 
 const listening = await new Promise((ok) => {
 	const s = createConnection({ port: Number(port), host: "127.0.0.1" });

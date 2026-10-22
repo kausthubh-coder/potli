@@ -8,6 +8,7 @@
 	"scripts": {
 		"setup": "node scripts/setup.mjs",
 		"doctor": "node scripts/doctor.mjs",
+		"remove-worktree": "node scripts/remove-worktree.mjs",
 		"seed": "node scripts/seed-local.mjs",
 		"dev": "vite dev",
 		"build": "vite build",

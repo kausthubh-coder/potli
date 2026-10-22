@@ -5,3 +5,5 @@ BETTER_AUTH_URL=      # this checkout's URL, e.g. http://localhost:3000 (setup w
 GITHUB_CLIENT_ID=     # GitHub OAuth app for sign-in
 GITHUB_CLIENT_SECRET=
 POSTHOG_KEY=          # PostHog project key, for server-side errors; empty disables
+SIGNUP_ALLOWLIST=     # GitHub logins allowed to create an account, comma-separated; empty allows nobody
+DEV_LOGIN=1           # dev-only sign-in on /sign-in without GitHub; never set this in production
