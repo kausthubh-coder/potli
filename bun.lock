@@ -7,7 +7,6 @@
       "dependencies": {
         "@fontsource-variable/ibm-plex-sans": "^5.3.0",
         "@fontsource/ibm-plex-mono": "^5.3.0",
-        "@posthog/react": "^1.7.0",
         "@tailwindcss/vite": "^4.1.18",
         "@tanstack/react-devtools": "0.10.13",
         "@tanstack/react-query": "5.104.5",
@@ -364,8 +363,6 @@
     "@posthog/browser-common": ["@posthog/browser-common@0.9.5", "", { "dependencies": { "@posthog/core": "^1.59.1", "@posthog/types": "^1.416.0" } }, "sha512-oXnBgZvM8UQ84IcBLfGP0WSGd9rA0PCGR37H8Pw0NszJRwxwbJnFXIUih0pvI/ze2eGmzkIEC9i3SwC+bMAgjQ=="],
 
     "@posthog/core": ["@posthog/core@1.59.3", "", { "dependencies": { "@posthog/types": "^1.416.0" } }, "sha512-XbfpD82YSms/asHU44xQq5vqadi6rHTRg6fyoTqjdGTiC1NiPRCeO8xhtANT682BkvlKJo+JwRDBu3Q8oEqQpw=="],
-
-    "@posthog/react": ["@posthog/react@1.11.3", "", { "peerDependencies": { "@types/react": ">=16.8.0", "posthog-js": ">=1.257.2", "react": ">=16.8.0" }, "optionalPeers": ["@types/react"] }, "sha512-YqvZb2y9jh/yW0ojUtAns0l4yHWqpu+5UeIBxZlXpyGuWlh8M4siXRMtqhEh1BKfqp6Sq2usdsQCuoUzx1QFWQ=="],
 
     "@posthog/types": ["@posthog/types@1.416.0", "", {}, "sha512-0/9+02s/0uDyrH4G/qUg1yyl6gXUg8Uuxw/PlDad3KLzo9FFS9zS/kAQaEshx/saVGupj1aAy/4EUBxWisBogw=="],
 
