@@ -40,6 +40,20 @@ check(
 	`BETTER_AUTH_URL matches PORT ${port}`,
 	"bun run setup",
 );
+// Two setups started at the same moment can both pick a port before either writes it down.
+const sharing = sh("git worktree list --porcelain")
+	.split("\n")
+	.filter((line) => line.startsWith("worktree "))
+	.map((line) => resolve(line.slice("worktree ".length)))
+	.filter((dir) => {
+		const env = join(dir, ".env.local");
+		return dir !== root && existsSync(env) && get(readFileSync(env, "utf8"), "PORT") === port;
+	});
+check(
+	sharing.length === 0,
+	`PORT ${port} is not claimed by another worktree${sharing.length ? ` (${sharing.join(", ")} has it)` : ""}`,
+	"bun run setup",
+);
 check(
 	!/(potli\.|workers\.dev|kausthubh\.dev)/.test(vars),
 	"dev env points at localhost, not production",

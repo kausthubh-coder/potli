@@ -88,6 +88,7 @@ const claude = join(dir, ".claude");
 if (existsSync(claude) && readdirSync(claude).length === 0) rmdirSync(claude);
 
 // 3. The worktree. Killed processes can hold files for a moment after taskkill returns, so retry.
+// Deleting node_modules makes this take about a minute on Windows.
 let removed = false;
 for (let attempt = 1; attempt <= 5 && !removed; attempt++) {
 	try {
