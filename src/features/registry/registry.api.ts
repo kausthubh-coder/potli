@@ -1,11 +1,13 @@
 import { env, waitUntil } from "cloudflare:workers";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { getPath } from "hono/utils/url";
 
 import { db } from "#/db";
 import { distTags, downloads, packages, versions } from "#/db/schema";
 import { decodeScopedSlash, type PackageName, parsePackageName, tarballUrl } from "./registry.names";
+import { isRecord, MAX_PUBLISH_BODY_BYTES, publish } from "./registry.publish";
 
 // The npm registry API. npm, pnpm, bun and yarn call these routes; the website never does.
 // Protocol notes: docs/registry-protocol.md. Bindings come from `cloudflare:workers` (not
@@ -19,10 +21,6 @@ const NOT_FOUND = { error: "Not found" };
 
 function packageNameFrom(scope: string, name: string): PackageName | null {
 	return parsePackageName(`${scope}/${name}`);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 // `npm ping`
@@ -97,6 +95,33 @@ registry.get(`${PKG}/-/:file`, async (c) => {
 		},
 	});
 });
+
+// `npm publish`. The body limit is checked while it streams in, before JSON parsing buffers it.
+registry.put(
+	PKG,
+	bodyLimit({
+		maxSize: MAX_PUBLISH_BODY_BYTES,
+		onError: (c) =>
+			c.json(
+				{
+					error: `The publish is over the 16 MB request limit; tarballs can be at most 10 MB. Leave files out with "files" in package.json or .npmignore.`,
+				},
+				413,
+			),
+	}),
+	async (c) => {
+		const name = packageNameFrom(c.req.param("scope"), c.req.param("name"));
+		if (!name) {
+			return c.json(
+				{
+					error: "Package names look like @scope/name, with lowercase letters, digits, '-', '.', '_' or '~'.",
+				},
+				400,
+			);
+		}
+		return publish(c, name);
+	},
+);
 
 function countDownload(packageName: string) {
 	const day = new Date().toISOString().slice(0, 10); // UTC day, "2026-10-22"
