@@ -1,0 +1,7 @@
+# Copy to .dev.vars for local dev (`bun run setup` does this). Production values are Worker
+# secrets set with `wrangler secret put <NAME>`; see docs/ops.md.
+BETTER_AUTH_SECRET=   # any long random string
+BETTER_AUTH_URL=      # this checkout's URL, e.g. http://localhost:3000 (setup writes it)
+GITHUB_CLIENT_ID=     # GitHub OAuth app for sign-in
+GITHUB_CLIENT_SECRET=
+POSTHOG_KEY=          # PostHog project key, for server-side errors; empty disables

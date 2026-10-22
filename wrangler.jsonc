@@ -1,7 +1,25 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "tanstack-start-app",
-  "compatibility_date": "2025-09-02",
-  "compatibility_flags": ["nodejs_compat"],
-  "main": "@tanstack/react-start/server-entry"
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "potli",
+	"compatibility_date": "2026-10-19",
+	"compatibility_flags": ["nodejs_compat"],
+	"main": "./src/server.ts",
+	"observability": {
+		"enabled": true,
+		"traces": { "enabled": true }
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "potli",
+			"database_id": "1d804341-1c2a-42e4-9738-a4b6f638125b",
+			"migrations_dir": "drizzle"
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "TARBALLS",
+			"bucket_name": "potli-tarballs"
+		}
+	]
 }

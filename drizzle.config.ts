@@ -1,13 +1,9 @@
-import { config } from 'dotenv'
-import { defineConfig } from 'drizzle-kit'
+import { defineConfig } from "drizzle-kit";
 
-config({ path: ['.env.local', '.env'] })
-
+// Only used to generate SQL migrations into ./drizzle. Wrangler applies them:
+// `bun run db:migrate` (local D1). Production is in docs/ops.md.
 export default defineConfig({
-  out: './drizzle',
-  schema: './src/db/schema.ts',
-  dialect: 'sqlite',
-  dbCredentials: {
-    url: process.env.DATABASE_URL,
-  },
-})
+	out: "./drizzle",
+	schema: "./src/db/schema.ts",
+	dialect: "sqlite",
+});

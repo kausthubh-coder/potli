@@ -10,4 +10,10 @@ dist-ssr
 .output
 .vinxi
 __unconfig*
-todos.json
+
+# Local secrets and state
+.dev.vars
+.env.local
+
+# Claude Code reads skills through a junction to .agents/skills
+.claude/skills
