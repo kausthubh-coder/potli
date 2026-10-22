@@ -7,9 +7,20 @@
 // Then runs the doctor.
 import { execSync, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { copyFileSync, existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import {
+	copyFileSync,
+	existsSync,
+	lstatSync,
+	mkdirSync,
+	readFileSync,
+	statSync,
+	symlinkSync,
+	utimesSync,
+	writeFileSync,
+} from "node:fs";
 import { createConnection } from "node:net";
 import { dirname, join, resolve } from "node:path";
+import { pendingMigrations } from "./local-d1.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 const sh = (cmd) => execSync(cmd, { cwd: root, encoding: "utf8" }).trim();
@@ -24,6 +35,9 @@ const lock = join(root, "bun.lock");
 const modules = join(root, "node_modules");
 if (!existsSync(modules) || statSync(modules).mtimeMs < statSync(lock).mtimeMs) {
 	run("bun install");
+	// bun leaves the folder's mtime alone when it only updates packages inside it.
+	const now = new Date();
+	utimesSync(modules, now, now);
 	notes.push("installed deps");
 }
 
@@ -95,18 +109,17 @@ setVar(".env.local", "PORT", port);
 setVar(".dev.vars", "BETTER_AUTH_URL", `http://localhost:${port}`);
 
 // 4. This checkout's own local D1
-execSync("bunx wrangler d1 migrations apply DB --local", { cwd: root, stdio: "ignore" });
+const pending = await pendingMigrations(root);
+if (pending === null || pending.length > 0) {
+	execSync("bunx wrangler d1 migrations apply DB --local", { cwd: root, stdio: "ignore" });
+	notes.push(pending ? `applied ${pending.length} migration(s) to local D1` : "checked local D1 migrations");
+}
 
-// 5. Skills link for Claude Code
+// 5. Skills link for Claude Code: a junction on Windows (no admin rights needed), a symlink elsewhere.
 const link = join(root, ".claude", "skills");
-if (!existsSync(link) && existsSync(join(root, ".agents", "skills"))) {
-	execSync(
-		`mkdir "${join(root, ".claude")}" 2>nul & mklink /J "${link}" "${join(root, ".agents", "skills")}"`,
-		{
-			shell: "cmd.exe",
-			stdio: "ignore",
-		},
-	);
+if (!lstatSync(link, { throwIfNoEntry: false })) {
+	mkdirSync(join(root, ".claude"), { recursive: true });
+	symlinkSync(join(root, ".agents", "skills"), link, "junction");
 	notes.push("linked .claude/skills");
 }
 
