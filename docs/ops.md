@@ -8,5 +8,7 @@ Production commands need the developer's explicit go. Agents use the `ship-potli
   `bunx wrangler d1 migrations apply DB --remote`
 - Deploy: `bun run build && bunx wrangler deploy`
 - Secrets (once, and on rotation): `bunx wrangler secret put <NAME>` for `BETTER_AUTH_SECRET`,
-  `BETTER_AUTH_URL`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `POSTHOG_KEY`.
+  `BETTER_AUTH_URL`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `POSTHOG_KEY`, `SIGNUP_ALLOWLIST`
+  (comma-separated GitHub logins that may create an account). Never set `DEV_LOGIN` in
+  production; it's local-only, and `vite build` strips the dev sign-in it enables anyway.
 - Logs: Workers Logs in the Cloudflare dashboard, or `bunx wrangler tail`.
