@@ -11,7 +11,16 @@ export default defineConfig(async () => ({
 			main: "./test/worker.ts",
 			wrangler: { configPath: "./wrangler.jsonc" },
 			miniflare: {
-				bindings: { TEST_MIGRATIONS: await readD1Migrations("./drizzle") },
+				// Fixed values so tests behave the same with or without a .dev.vars (CI has none).
+				bindings: {
+					TEST_MIGRATIONS: await readD1Migrations("./drizzle"),
+					BETTER_AUTH_SECRET: "test-secret-that-is-at-least-32-characters-long",
+					BETTER_AUTH_URL: "http://localhost:3000",
+					GITHUB_CLIENT_ID: "",
+					GITHUB_CLIENT_SECRET: "",
+					SIGNUP_ALLOWLIST: "alice, Bob",
+					DEV_LOGIN: "1",
+				},
 			},
 		}),
 	],
