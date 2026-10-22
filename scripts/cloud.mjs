@@ -32,8 +32,14 @@ if (
 if (!run("node scripts/setup.mjs", process.stderr))
 	problems.push("setup or the doctor failed (run bun run doctor)");
 
+// 3. A browser for verify-potli's headless steps. With none on the VM, install the Chromium that
+// playwright-core wants, where browser.mjs looks for it.
+const { findBrowser } = await import("../.agents/skills/verify-potli/scripts/browser.mjs");
+if (!findBrowser() && !run("node node_modules/playwright-core/cli.js install chromium", process.stderr))
+	problems.push("no browser for verify-potli, and installing Playwright's Chromium failed");
+
 console.log(
 	problems.length
 		? `cloud: potli NOT ready: ${problems.join("; ")}.`
-		: "cloud: potli ready (deps, port, local D1, skills). See ## Cloud sessions in AGENTS.md.",
+		: "cloud: potli ready (deps, port, local D1, skills, browser). See ## Cloud sessions in AGENTS.md.",
 );

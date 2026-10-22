@@ -17,3 +17,6 @@ __unconfig*
 
 # Claude Code reads skills through a junction to .agents/skills
 .claude/skills
+
+# verify-potli evidence (screenshots, logs)
+.artifacts
