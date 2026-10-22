@@ -1,14 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/")({ component: Home });
+import { HomePage } from "#/features/home/HomePage";
+import { getRecentPackages } from "#/features/packages/packages.data";
+import { getOrigin } from "#/features/site/origin";
+
+export const Route = createFileRoute("/")({
+	loader: async () => ({ recent: await getRecentPackages(), origin: getOrigin() }),
+	staleTime: 30_000,
+	component: Home,
+});
 
 function Home() {
-	return (
-		<div className="p-8">
-			<h1 className="text-4xl font-bold">Welcome to TanStack Start</h1>
-			<p className="mt-4 text-lg">
-				Edit <code>src/routes/index.tsx</code> to get started.
-			</p>
-		</div>
-	);
+	const { recent, origin } = Route.useLoaderData();
+	return <HomePage packages={recent.packages} total={recent.total} origin={origin} now={recent.renderedAt} />;
 }
