@@ -17,7 +17,7 @@ potli ships from `main` on `kausthubh-coder/potli` (public) to one Cloudflare ac
 
 Merging deploys nothing: no Cloudflare Git integration is connected, so the deploy is always your step. A change that touches only `docs/`, `.agents/`, `.github/`, `scripts/`, `test/` or Markdown lands and skips steps 3 and 4.
 
-Production is `https://potli.<subdomain>.workers.dev` (`<prod>` below). `<main>` is `C:\Users\kaust\OneDrive\Documents\dev\potli`.
+Production is `https://potli.<subdomain>.workers.dev` (`<prod>` below). `<main>` is `C:\Users\kaust\OneDrive\Documents\dev\potli` on my laptop and `~/dev/potli` on my InstaBox cloud machine. Wrangler is logged in only on the laptop: on any other machine, land the PR, then list the remote migration and the deploy in your report for me to run, unless `CLOUDFLARE_API_TOKEN` is set.
 
 **First ship.** If `git -C <main> remote get-url origin` fails, or `<subdomain>` above is still a placeholder, read [first-ship.md](first-ship.md) first: it lists the one-time steps only I can do and what it changes below.
 

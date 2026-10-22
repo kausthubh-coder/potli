@@ -11,10 +11,16 @@ export async function pendingMigrations(root) {
 		.filter((f) => f.endsWith(".sql"))
 		.sort();
 	let DatabaseSync;
+	// Node 22 prints an ExperimentalWarning when node:sqlite loads, into the middle of the doctor's
+	// output. Only this read-only use touches it, so silence warnings for the import alone.
+	const emitWarning = process.emitWarning;
+	process.emitWarning = () => {};
 	try {
 		({ DatabaseSync } = await import("node:sqlite"));
 	} catch {
 		return null;
+	} finally {
+		process.emitWarning = emitWarning;
 	}
 	const dir = join(root, ".wrangler", "state", "v3", "d1", "miniflare-D1DatabaseObject");
 	const files = existsSync(dir)

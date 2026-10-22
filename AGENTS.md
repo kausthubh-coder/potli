@@ -45,7 +45,7 @@ Each feature lives in one folder with its UI, logic, data access and tests. Shar
   the main checkout, picks a free port, migrates this checkout's local D1)
 - Doctor: `bun run doctor` (run it first when anything looks off)
 - Remove a worktree, from another checkout: `bun run remove-worktree <path>` (stops its dev
-  processes, removes the `.claude\skills` junction alone, then the worktree; `--force` drops
+  processes, removes the `.claude/skills` link alone, then the worktree; `--force` drops
   uncommitted changes)
 - Dev: `bun run dev` (port from `PORT` in `.env.local`; ready when Vite prints `Local:`)
 - Seed local data for the website: `bun run seed` (@kausthubh and @kriyan packages from real READMEs, local D1 only)
@@ -110,6 +110,31 @@ Each feature lives in one folder with its UI, logic, data access and tests. Shar
 
 When I correct you for the same thing twice, add the rule here and make something enforce it
 (`/correct`).
+
+## Cloud sessions
+
+potli runs on Linux as well as on my Windows laptop: setup, the doctor, `remove-worktree`, dev,
+build and the full check all work there. A cloud VM (Claude Code on the web, Codex Cloud) starts
+from a bare clone. The SessionStart hook in `.claude/settings.json` runs `node scripts/cloud.mjs`
+(Codex: set the environment's setup script to `CLOUD=1 node scripts/cloud.mjs`). It loads my global
+skills and rules, then runs setup. It does nothing outside the cloud. Its last line says ready or
+what failed; rerun it if you're unsure.
+
+- A bare clone is its own main checkout, so setup makes `.dev.vars` from `.dev.vars.example` with a
+  fresh `BETTER_AUTH_SECRET`, and gives it port 3000.
+- Works there: setup and the doctor, `bun run dev`, `bun run build`, `bun run check`, the registry
+  with real `npm`/`bun` clients against the dev server, and the site through dev sign-in
+  (`DEV_LOGIN=1` is in the example; add your test login to `SIGNUP_ALLOWLIST` in `.dev.vars`).
+- Start dev in its own process group so stopping it stops vite and workerd too:
+  `setsid --fork sh -c 'echo $$ > .wrangler/dev.pid; exec bun run dev' > .wrangler/dev.log 2>&1 < /dev/null`,
+  then `kill -TERM -- -$(cat .wrangler/dev.pid)`. One dev server takes about 1.3 GB; on a shared
+  machine run one at a time.
+- `bun run seed` reads the real READMEs from the repos next to the main checkout (`critly`,
+  `megha`, `kriyan`). A bare clone has none; point `POTLI_SEED_SOURCES` at a folder that does.
+- Env vars: none needed. GitHub sign-in needs `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` in
+  `.dev.vars`, which a cloud VM doesn't have; use dev sign-in.
+- Only on my machine: production (`ship-potli`'s deploy and `--remote` commands need my wrangler
+  login) and the main checkout. List those steps in your report.
 
 ## Safety
 

@@ -18,7 +18,9 @@ const fail = (message) => {
 if (!target) fail("usage: bun run remove-worktree <path> [--force]");
 
 const git = (...a) => execFileSync("git", a, { encoding: "utf8" }).trim();
-const same = (a, b) => resolve(a).toLowerCase() === resolve(b).toLowerCase();
+// Windows paths are case-insensitive and may use either slash; Linux paths are neither.
+const fold = (p) => (process.platform === "win32" ? p.toLowerCase().replaceAll("/", "\\") : p);
+const same = (a, b) => fold(resolve(a)) === fold(resolve(b));
 const dir = resolve(target);
 
 // Only a linked worktree of this repo, never the main checkout or the one we stand in.
@@ -31,7 +33,7 @@ const worktrees = git("worktree", "list", "--porcelain")
 const entry = worktrees.find((w) => same(w.path, dir));
 if (!entry) fail(`${dir} is not a worktree of this repo (see git worktree list)`);
 if (entry === worktrees[0]) fail(`${dir} is the main checkout`);
-if (`${resolve(process.cwd())}${sep}`.toLowerCase().startsWith(`${dir}${sep}`.toLowerCase())) {
+if (fold(`${resolve(process.cwd())}${sep}`).startsWith(fold(`${dir}${sep}`))) {
 	fail("run this from another checkout, not from inside the worktree you are removing");
 }
 const dirty = existsSync(dir) ? git("-C", dir, "status", "--porcelain") : "";
@@ -59,15 +61,19 @@ const ancestors = new Set();
 for (let pid = process.pid; pid && !ancestors.has(pid); pid = processes.find((p) => p.pid === pid)?.ppid) {
 	ancestors.add(pid);
 }
-const marker = join(dir, "node_modules").toLowerCase();
-const fromHere = (p) =>
-	!ancestors.has(p.pid) && p.cmd.toLowerCase().replaceAll("/", "\\").includes(marker.replaceAll("/", "\\"));
+const marker = fold(join(dir, "node_modules"));
+const fromHere = (p) => !ancestors.has(p.pid) && fold(p.cmd).includes(marker);
 const matching = processes.filter(fromHere);
 const roots = matching.filter((p) => !matching.some((q) => q.pid === p.ppid));
 if (roots.length === 0) console.log("no dev processes running from this checkout");
 for (const p of roots) console.log(`stopping PID ${p.pid} and its children: ${p.cmd.slice(0, 120)}`);
-// taskkill /T takes each tree on Windows; elsewhere every matching process gets its own signal.
-for (const p of process.platform === "win32" ? roots : matching) {
+// taskkill /T takes each tree on Windows. Elsewhere each root and everything under it gets its own
+// signal, including children whose command line doesn't name the checkout.
+const trees = [...roots];
+for (const p of trees) {
+	for (const child of processes) if (child.ppid === p.pid && !trees.includes(child)) trees.push(child);
+}
+for (const p of process.platform === "win32" ? roots : trees) {
 	try {
 		if (process.platform === "win32") execSync(`taskkill /T /F /PID ${p.pid}`, { stdio: "ignore" });
 		else process.kill(p.pid, "SIGTERM");

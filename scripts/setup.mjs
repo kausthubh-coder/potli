@@ -115,11 +115,13 @@ if (pending === null || pending.length > 0) {
 	notes.push(pending ? `applied ${pending.length} migration(s) to local D1` : "checked local D1 migrations");
 }
 
-// 5. Skills link for Claude Code: a junction on Windows (no admin rights needed), a symlink elsewhere.
+// 5. Skills link for Claude Code: a junction on Windows (no admin rights needed; junctions need an
+// absolute target), a relative symlink elsewhere so the link survives the checkout moving.
 const link = join(root, ".claude", "skills");
 if (!lstatSync(link, { throwIfNoEntry: false })) {
 	mkdirSync(join(root, ".claude"), { recursive: true });
-	symlinkSync(join(root, ".agents", "skills"), link, "junction");
+	if (process.platform === "win32") symlinkSync(join(root, ".agents", "skills"), link, "junction");
+	else symlinkSync(join("..", ".agents", "skills"), link);
 	notes.push("linked .claude/skills");
 }
 

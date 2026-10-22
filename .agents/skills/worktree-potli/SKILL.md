@@ -15,7 +15,7 @@ bun run doctor   # read-only; every FAIL prints the command that fixes it
 bun run dev      # http://localhost:<PORT in .env.local>; ready when Vite prints "Local:"
 ```
 
-Setup takes about 70 s in a brand-new worktree (`bun install`, 338 packages) and about 1 s when nothing is missing. Rerun it whenever you like. The first `bun run dev` in a checkout takes about a minute before it prints `Local:` (Vite optimizes dependencies); later starts are quicker.
+Setup takes about 70 s in a brand-new worktree on Windows (`bun install`), 20 s on Linux, and about 1 s when nothing is missing. Rerun it whenever you like. The first `bun run dev` in a checkout takes about a minute before it prints `Local:` (Vite optimizes dependencies); later starts are quicker.
 
 A healthy doctor exits 0:
 
@@ -47,45 +47,60 @@ The GitHub warn is expected until I put OAuth keys in the main checkout's `.dev.
 
 ## Start and stop dev with a PID
 
-Start dev so you hold the PID of the tree (PowerShell):
+Start dev so you hold the PID of the whole tree (bun, vite, workerd), and stop that tree only.
+
+Linux (the cloud machine, a cloud VM):
+
+```
+setsid --fork sh -c 'echo $$ > .wrangler/dev.pid; exec bun run dev' > .wrangler/dev.log 2>&1 < /dev/null
+kill -TERM -- -$(cat .wrangler/dev.pid)    # stops the process group
+```
+
+Windows (PowerShell):
 
 ```
 $dev = Start-Process -FilePath (Get-Command bun).Source -ArgumentList 'run','dev' -WorkingDirectory <checkout> -RedirectStandardOutput <checkout>\.wrangler\dev.log -RedirectStandardError <checkout>\.wrangler\dev.err.log -WindowStyle Hidden -PassThru
 $dev.Id
+taskkill /T /F /PID <that id>    # stops the tree
 ```
 
-Wait for `Local:` in `dev.log`. Stop it with `taskkill /T /F /PID <that id>`: the tree is bun, `vite.exe`, node and `workerd.exe`. Stop only processes you started. Other agents' dev servers run from their own worktrees.
+Wait for `Local:` in `dev.log`. Stop only processes you started. Other agents' dev servers run from their own worktrees. One dev server uses about 1.3 GB: on the 8 GB cloud machine, run one at a time and stop it when your check is done.
 
 ## The main checkout
 
-`C:\Users\kaust\OneDrive\Documents\dev\potli`, on `main`, port 3000. Never edit it. Only `ship-potli` touches it, with a fast-forward pull.
+On `main`, port 3000: `C:\Users\kaust\OneDrive\Documents\dev\potli` on my laptop, `~/dev/potli` on my InstaBox cloud machine. Never edit it. Only `ship-potli` touches it, with a fast-forward pull.
 
 ## Helpers
 
-One worktree and one dev server per helper agent; never two agents in one checkout. Make it under the folder T3 uses:
+One worktree and one dev server per helper agent; never two agents in one checkout. Make it under the folder T3 uses (`<main>` and `<t3>` below):
+
+| | `<main>` | `<t3>` |
+|---|---|---|
+| laptop | `C:\Users\kaust\OneDrive\Documents\dev\potli` | `C:\Users\kaust\.t3\worktrees\potli` |
+| cloud machine | `~/dev/potli` | `~/.t3/worktrees/potli` |
 
 ```
-git -C C:\Users\kaust\OneDrive\Documents\dev\potli fetch origin
-git -C C:\Users\kaust\OneDrive\Documents\dev\potli worktree add C:\Users\kaust\.t3\worktrees\potli\<name> -b <branch> origin/main
-cd C:\Users\kaust\.t3\worktrees\potli\<name>
+git -C <main> fetch origin
+git -C <main> worktree add <t3>/<name> -b <branch> origin/main
+cd <t3>/<name>
 bun run setup
 ```
 
-Until the GitHub remote exists, skip the fetch and branch from `main`. Give the helper the path and the port setup printed.
+Give the helper the path and the port setup printed.
 
 ## Remove a worktree
 
 From a different checkout:
 
 ```
-bun run remove-worktree C:\Users\kaust\.t3\worktrees\potli\<name>            # refuses uncommitted changes
-bun run remove-worktree C:\Users\kaust\.t3\worktrees\potli\<name> --force    # drops them
+bun run remove-worktree <t3>/<name>            # refuses uncommitted changes
+bun run remove-worktree <t3>/<name> --force    # drops them
 ```
 
-It stops every process running from that checkout's `node_modules` (vite, workerd) with its children, removes the `.claude\skills` junction alone, then runs `git worktree remove`. It takes about a minute, almost all of it deleting `node_modules`. It keeps the branch: delete it with `git branch -D <branch>` once its PR is merged. It refuses the main checkout and the checkout you run it from.
+It stops every process running from that checkout's `node_modules` (vite, workerd) with its children, removes the `.claude/skills` link alone, then runs `git worktree remove`. On Windows it takes about a minute, almost all of it deleting `node_modules`; on Linux about a second. It keeps the branch: delete it with `git branch -D <branch>` once its PR is merged. It refuses the main checkout and the checkout you run it from.
 
 Remove a worktree only when its work is merged or I say so, and never one another live thread uses: check `t3_thread_list` for its path first. A thread can't remove its own worktree; list it in your report.
 
 ## T3
 
-T3 makes worktrees under `C:\Users\kaust\.t3\worktrees\potli\`. If a new worktree has no `node_modules`, T3 didn't run setup for you: run `bun run setup` first thing.
+T3 makes worktrees under `<t3>`. If a new worktree has no `node_modules`, T3 didn't run setup for you: run `bun run setup` first thing.
