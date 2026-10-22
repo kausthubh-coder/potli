@@ -8,7 +8,6 @@ import { SiteFooter } from "#/features/site/SiteFooter";
 import { SiteHeader } from "#/features/site/SiteHeader";
 import { buttonClass, StatusPage } from "#/features/site/StatusPage";
 import { themeScript } from "#/features/site/theme";
-import PostHogProvider from "#/integrations/posthog/provider";
 import appCss from "#/styles.css?url";
 
 interface MyRouterContext {
@@ -78,25 +77,23 @@ function RootDocument({ children }: { children: ReactNode }) {
 				<HeadContent />
 			</head>
 			<body>
-				<PostHogProvider>
-					<a
-						href="#main"
-						className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-md focus:bg-card focus:px-3 focus:py-2 focus:shadow-raised"
-					>
-						Skip to content
-					</a>
-					<div className="flex min-h-dvh flex-col">
-						<SiteHeader />
-						<div id="main" className="flex flex-1 flex-col">
-							{children}
-						</div>
-						<SiteFooter />
+				<a
+					href="#main"
+					className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-md focus:bg-card focus:px-3 focus:py-2 focus:shadow-raised"
+				>
+					Skip to content
+				</a>
+				<div className="flex min-h-dvh flex-col">
+					<SiteHeader />
+					<div id="main" className="flex flex-1 flex-col">
+						{children}
 					</div>
-					<Pageviews />
-					<Suspense>
-						<Devtools />
-					</Suspense>
-				</PostHogProvider>
+					<SiteFooter />
+				</div>
+				<Pageviews />
+				<Suspense>
+					<Devtools />
+				</Suspense>
 				<Scripts />
 			</body>
 		</html>

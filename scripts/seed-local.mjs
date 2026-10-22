@@ -6,10 +6,15 @@
 import { execSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
-const dev = resolve(root, process.env.POTLI_SEED_SOURCES ?? "C:/Users/kaust/OneDrive/Documents/dev");
+// The other repos sit next to the main checkout (dev/potli, dev/critly, ...), on the laptop and on
+// the cloud machine alike. A worktree finds that folder through git's common dir.
+const mainCheckout = dirname(
+	resolve(root, execSync("git rev-parse --git-common-dir", { cwd: root, encoding: "utf8" }).trim()),
+);
+const dev = resolve(root, process.env.POTLI_SEED_SOURCES ?? dirname(mainCheckout));
 const DAY = 24 * 60 * 60 * 1000;
 const now = Date.now();
 
