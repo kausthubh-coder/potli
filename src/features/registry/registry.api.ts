@@ -302,6 +302,42 @@ registry.get("/-/v1/search", async (c) => {
 
 registry.notFound((c) => c.json(NOT_FOUND, 404));
 
+registry.onError((error, c) => {
+	console.error(error);
+	if (env.POSTHOG_KEY) waitUntil(reportException(error, c.req.method, new URL(c.req.url).pathname));
+	return c.json(
+		{
+			error:
+				"The registry hit an unexpected error. Try again; if it keeps happening, open an issue on potli's GitHub.",
+		},
+		500,
+	);
+});
+
+// PostHog's capture endpoint, called directly: one event per uncaught error is all the
+// registry needs, and an SDK would add a dependency to every request.
+function reportException(error: Error, method: string, path: string) {
+	return fetch("https://us.i.posthog.com/i/v0/e/", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			api_key: env.POSTHOG_KEY,
+			event: "$exception",
+			distinct_id: "potli-registry",
+			properties: {
+				$exception_list: [
+					{ type: error.name, value: error.message, mechanism: { handled: false, synthetic: false } },
+				],
+				$exception_stack_trace_raw: error.stack,
+				$process_person_profile: false,
+				source: "registry",
+				method,
+				path,
+			},
+		}),
+	});
+}
+
 // Registry routes are everything under "/@" (scoped packages and their tarballs) and "/-/"
 // (npm's special endpoints). The website must not use paths that start with either.
 export function isRegistryPath(pathname: string): boolean {

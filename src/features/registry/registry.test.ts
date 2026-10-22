@@ -592,3 +592,41 @@ describe("search", () => {
 		expect(none).toMatchObject({ objects: [], total: 0 });
 	});
 });
+
+describe("errors", () => {
+	it("answers JSON 500 and reports the exception to PostHog when a key is set", async () => {
+		const owner = await seedUser("broken");
+		await seedVersion(owner, "pkg", "1.0.0");
+		await env.TARBALLS.delete("@broken/pkg/1.0.0/seeded.tgz");
+
+		const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}"));
+		const savedKey = env.POSTHOG_KEY;
+		env.POSTHOG_KEY = "phc_test";
+		try {
+			const res = await registry.request("/@broken/pkg/-/pkg-1.0.0.tgz");
+			expect(res.status).toBe(500);
+			expect(await res.json()).toEqual({
+				error:
+					"The registry hit an unexpected error. Try again; if it keeps happening, open an issue on potli's GitHub.",
+			});
+
+			expect(fetchSpy).toHaveBeenCalledTimes(1);
+			const [url, init] = fetchSpy.mock.calls[0];
+			expect(url).toBe("https://us.i.posthog.com/i/v0/e/");
+			expect(JSON.parse(String(init?.body))).toMatchObject({
+				api_key: "phc_test",
+				event: "$exception",
+				properties: {
+					$exception_list: [
+						{ type: "Error", value: "Tarball missing from R2: @broken/pkg/1.0.0/seeded.tgz" },
+					],
+					method: "GET",
+					path: "/@broken/pkg/-/pkg-1.0.0.tgz",
+				},
+			});
+		} finally {
+			env.POSTHOG_KEY = savedKey;
+			fetchSpy.mockRestore();
+		}
+	});
+});
