@@ -12,6 +12,8 @@ export function getRouter() {
 		scrollRestoration: true,
 		defaultPreload: "intent",
 		defaultPreloadStaleTime: 0,
+		// Package pages are /package/@scope/name; keep the "@" readable instead of "%40".
+		pathParamsAllowedCharacters: ["@"],
 	});
 
 	setupRouterSsrQueryIntegration({ router, queryClient: context.queryClient });

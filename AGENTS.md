@@ -48,6 +48,7 @@ Each feature lives in one folder with its UI, logic, data access and tests. Shar
   processes, removes the `.claude\skills` junction alone, then the worktree; `--force` drops
   uncommitted changes)
 - Dev: `bun run dev` (port from `PORT` in `.env.local`; ready when Vite prints `Local:`)
+- Seed local data for the website: `bun run seed` (@kausthubh and @kriyan packages from real READMEs, local D1 only)
 - Test one file: `bunx vitest run src/features/registry/registry.test.ts`
 - Typecheck and lint: `bun run typecheck`, `bunx biome check <files>`
 - New migration after a schema change: `bun run db:generate`, then `bun run db:migrate`

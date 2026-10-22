@@ -10,13 +10,21 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SearchRouteImport } from './routes/search'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as ScopeScopeRouteImport } from './routes/scope/$scope'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as PackageScopeNameRouteImport } from './routes/package/$scope/$name'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SearchRoute = SearchRouteImport.update({
+  id: '/search',
+  path: '/search',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -29,44 +37,88 @@ const SignInRoute = SignInRouteImport.update({
   path: '/sign-in',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ScopeScopeRoute = ScopeScopeRouteImport.update({
+  id: '/scope/$scope',
+  path: '/scope/$scope',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PackageScopeNameRoute = PackageScopeNameRouteImport.update({
+  id: '/package/$scope/$name',
+  path: '/package/$scope/$name',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
+  '/scope/$scope': typeof ScopeScopeRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/package/$scope/$name': typeof PackageScopeNameRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
+  '/scope/$scope': typeof ScopeScopeRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/package/$scope/$name': typeof PackageScopeNameRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
+  '/scope/$scope': typeof ScopeScopeRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/package/$scope/$name': typeof PackageScopeNameRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/settings' | '/sign-in' | '/api/auth/$'
+  fullPaths:
+    | '/'
+    | '/search'
+    | '/settings'
+    | '/sign-in'
+    | '/scope/$scope'
+    | '/api/auth/$'
+    | '/package/$scope/$name'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/settings' | '/sign-in' | '/api/auth/$'
-  id: '__root__' | '/' | '/settings' | '/sign-in' | '/api/auth/$'
+  to:
+    | '/'
+    | '/search'
+    | '/settings'
+    | '/sign-in'
+    | '/scope/$scope'
+    | '/api/auth/$'
+    | '/package/$scope/$name'
+  id:
+    | '__root__'
+    | '/'
+    | '/search'
+    | '/settings'
+    | '/sign-in'
+    | '/scope/$scope'
+    | '/api/auth/$'
+    | '/package/$scope/$name'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
   SignInRoute: typeof SignInRoute
+  ScopeScopeRoute: typeof ScopeScopeRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  PackageScopeNameRoute: typeof PackageScopeNameRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -76,6 +128,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/search': {
+      id: '/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof SearchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -92,6 +151,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignInRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/scope/$scope': {
+      id: '/scope/$scope'
+      path: '/scope/$scope'
+      fullPath: '/scope/$scope'
+      preLoaderRoute: typeof ScopeScopeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -99,14 +165,24 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/package/$scope/$name': {
+      id: '/package/$scope/$name'
+      path: '/package/$scope/$name'
+      fullPath: '/package/$scope/$name'
+      preLoaderRoute: typeof PackageScopeNameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
   SignInRoute: SignInRoute,
+  ScopeScopeRoute: ScopeScopeRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  PackageScopeNameRoute: PackageScopeNameRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
