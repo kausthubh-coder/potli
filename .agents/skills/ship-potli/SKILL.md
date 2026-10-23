@@ -17,9 +17,9 @@ potli ships from `main` on `kausthubh-coder/potli` (public) to one Cloudflare ac
 
 Merging deploys nothing: no Cloudflare Git integration is connected, so the deploy is always your step. A change that touches only `docs/`, `.agents/`, `.github/`, `scripts/`, `test/` or Markdown lands and skips steps 3 and 4.
 
-Production is `https://potli.<subdomain>.workers.dev` (`<prod>` below). `<main>` is `C:\Users\kaust\OneDrive\Documents\dev\potli` on my laptop and `~/dev/potli` on my InstaBox cloud machine. Wrangler is logged in only on the laptop: on any other machine, land the PR, then list the remote migration and the deploy in your report for me to run, unless `CLOUDFLARE_API_TOKEN` is set.
+Production is `https://potli.kausthubh2007.workers.dev` (`<prod>` below), first deployed 2026-10-23. `<main>` is `C:\Users\kaust\OneDrive\Documents\dev\potli` on my laptop and `~/dev/potli` on my InstaBox cloud machine.
 
-**First ship.** If `git -C <main> remote get-url origin` fails, or `<subdomain>` above is still a placeholder, read [first-ship.md](first-ship.md) first: it lists the one-time steps only I can do and what it changes below.
+Wrangler auth: on the laptop, my `wrangler login`. On InstaBox, an account API token in `~/.config/potli/cloudflare.env` (outside the repo, mode 600); load it into the shell before steps 1 and 3-5 with `set -a; . ~/.config/potli/cloudflare.env; set +a`, and never print it. On any other machine, land the PR, then list the remote migration and the deploy in your report for me to run. On InstaBox, check the agents' memory before a build: when it is over its cap the kernel freezes wrangler until its requests fail with `fetch failed`. Rerun after that; nothing was applied.
 
 **Rules**
 - Production needs my go in this conversation. "Ship" (or deploy, release, merge and deploy) is that go for every step below, including the remote migration, the deploy, the main checkout pull and cleanup: don't stop to ask between steps.
