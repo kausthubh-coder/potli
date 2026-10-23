@@ -12,7 +12,7 @@ Tell your package manager which registry serves the scope, then install as usual
 
 ```ini
 # .npmrc
-@kausthubh:registry=https://potli.<subdomain>.workers.dev/
+@kausthubh:registry=https://potli.kausthubh2007.workers.dev/
 ```
 
 ```sh

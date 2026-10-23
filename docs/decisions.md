@@ -10,7 +10,7 @@ Made with the developer when the project started (2026-10-22). Change them only 
 - **Other people's packages:** the data model supports them from day one, but sign-up stays
   closed until size and rate limits, report and takedown, and a terms page exist.
 - **Tarball URLs come from the request origin.** The registry starts on
-  `potli.<subdomain>.workers.dev` and moves to a bought domain later; workers.dev stays enabled
+  `potli.kausthubh2007.workers.dev` and moves to a bought domain later; workers.dev stays enabled
   after that so old lockfiles keep working.
 - **Existing packages** (t3-megha, @kausthubh/critly) keep publishing to npmjs as well.
 - **Stack:** one Cloudflare Worker. TanStack Start (React) for the site, Hono for the npm API,
