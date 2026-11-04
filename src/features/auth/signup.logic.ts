@@ -1,9 +1,9 @@
-// Sign-up is closed until potli has size limits, takedowns and terms (docs/decisions.md). Only
-// GitHub logins on SIGNUP_ALLOWLIST can create an account; existing accounts always sign in.
+// Only GitHub logins on SIGNUP_ALLOWLIST can create an account; `*` lets anyone sign up.
+// Existing accounts always sign in.
 
 export const SIGNUP_CLOSED = "signup_closed";
 
-// SIGNUP_ALLOWLIST is comma-separated GitHub logins, e.g. "kausthubh-coder, alice".
+// SIGNUP_ALLOWLIST is comma-separated GitHub logins, e.g. "kausthubh-coder, alice", or `*`.
 export function parseAllowlist(value: string | undefined): Set<string> {
 	return new Set(
 		(value ?? "")
@@ -15,5 +15,6 @@ export function parseAllowlist(value: string | undefined): Set<string> {
 
 export function isSignupAllowed(login: string | null | undefined, allowlist: string | undefined): boolean {
 	if (!login) return false;
-	return parseAllowlist(allowlist).has(login.trim().toLowerCase());
+	const logins = parseAllowlist(allowlist);
+	return logins.has("*") || logins.has(login.trim().toLowerCase());
 }

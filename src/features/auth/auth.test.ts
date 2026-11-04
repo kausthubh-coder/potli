@@ -24,6 +24,12 @@ describe("sign-up allowlist", () => {
 		expect(isSignupAllowed("alice", "")).toBe(false);
 		expect(isSignupAllowed("alice", undefined)).toBe(false);
 	});
+
+	it("lets any GitHub login sign up when the allowlist is *", () => {
+		expect(isSignupAllowed("alice", "*")).toBe(true);
+		expect(isSignupAllowed("Someone-New", " * ")).toBe(true);
+		expect(isSignupAllowed(null, "*")).toBe(false);
+	});
 });
 
 describe("account creation (SIGNUP_ALLOWLIST is 'alice, Bob' in tests)", () => {

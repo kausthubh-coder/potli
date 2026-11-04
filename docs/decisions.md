@@ -7,8 +7,9 @@ Made with the developer when the project started (2026-10-22). Change them only 
 - **Scopes.** Signing in with GitHub gives you the scope matching your GitHub login. Any other free
   name can be claimed as an org scope. Popular names (npm, react, vercel, cloudflare, ...) are
   reserved. Scope names follow npm rules: lowercase, url-safe.
-- **Other people's packages:** the data model supports them from day one, but sign-up stays
-  closed until size and rate limits, report and takedown, and a terms page exist.
+- **Other people's packages:** the data model supports them from day one. Sign-up opened to
+  anyone with GitHub on 2026-11-04, at the developer's call, before rate limits, report and
+  takedown, and a terms page existed; those come next. Size limits were already in place.
 - **Tarball URLs come from the request origin.** The registry starts on
   `potli.kausthubh2007.workers.dev` and moves to a bought domain later; workers.dev stays enabled
   after that so old lockfiles keep working.
