@@ -1,3 +1,5 @@
+import { Link } from "@tanstack/react-router";
+
 import { PotliMark } from "./PotliMark";
 
 // Padding grows the target to 44px on phones (24px on desktop); negative margin keeps the layout.
@@ -13,6 +15,9 @@ export function SiteFooter() {
 					<span>potli is an open-source npm registry for scoped packages.</span>
 				</p>
 				<nav aria-label="Project" className="flex items-center gap-5">
+					<Link to="/terms" className={footerLink}>
+						Terms
+					</Link>
 					<a href="https://github.com/kausthubh-coder/potli" className={footerLink}>
 						GitHub
 					</a>

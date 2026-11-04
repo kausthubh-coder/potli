@@ -19,6 +19,7 @@ export default defineConfig(async () => ({
 					GITHUB_CLIENT_ID: "",
 					GITHUB_CLIENT_SECRET: "",
 					SIGNUP_ALLOWLIST: "alice, Bob",
+					ADMIN_LOGINS: "root-admin",
 					DEV_LOGIN: "1",
 				},
 			},

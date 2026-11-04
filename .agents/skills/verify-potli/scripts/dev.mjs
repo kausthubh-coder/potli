@@ -6,13 +6,16 @@
 //
 // start runs `bun run dev` in its own process group (Linux, macOS) or as a detached tree (Windows)
 // and writes its PID to .wrangler/verify/dev.pid, so stop ends vite and workerd with it. It also
-// makes sure .dev.vars turns dev sign-in on and lets the verify login sign up, because the journey
-// signs in as that login. Both are local-only settings; setup copies .dev.vars per checkout.
+// makes sure .dev.vars turns dev sign-in on, lets the verify logins sign up, and makes the admin
+// one an admin, because the journey and the moderation checks sign in as them. All local-only
+// settings; setup copies .dev.vars per checkout.
 import { execSync, spawn } from "node:child_process";
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 export const VERIFY_LOGIN = "potli-verify";
+// Signs in to /admin to review reports and take packages down (ADMIN_LOGINS).
+export const VERIFY_ADMIN_LOGIN = "potli-verify-admin";
 const root = resolve(import.meta.dirname, "..", "..", "..", "..");
 const dir = join(root, ".wrangler", "verify");
 const pidFile = join(dir, "dev.pid");
@@ -55,11 +58,16 @@ function ensureDevVars() {
 		changes.push(`${key}=${value}`);
 	};
 	if (get(text, "DEV_LOGIN") !== "1") set("DEV_LOGIN", "1");
-	const allow = get(text, "SIGNUP_ALLOWLIST")
-		.split(",")
-		.map((s) => s.trim())
-		.filter(Boolean);
-	if (!allow.includes(VERIFY_LOGIN)) set("SIGNUP_ALLOWLIST", [...allow, VERIFY_LOGIN].join(","));
+	const list = (key) =>
+		get(text, key)
+			.split(",")
+			.map((s) => s.trim())
+			.filter(Boolean);
+	const allow = list("SIGNUP_ALLOWLIST");
+	const missing = [VERIFY_LOGIN, VERIFY_ADMIN_LOGIN].filter((login) => !allow.includes(login));
+	if (missing.length && !allow.includes("*")) set("SIGNUP_ALLOWLIST", [...allow, ...missing].join(","));
+	const admins = list("ADMIN_LOGINS");
+	if (!admins.includes(VERIFY_ADMIN_LOGIN)) set("ADMIN_LOGINS", [...admins, VERIFY_ADMIN_LOGIN].join(","));
 	if (changes.length) {
 		writeFileSync(path, text);
 		console.log(`dev: set ${changes.join(" and ")} in .dev.vars`);
@@ -99,12 +107,19 @@ async function status() {
 		"dev.mjs stop && dev.mjs start (it sets DEV_LOGIN=1)",
 	);
 	const vars = read(".dev.vars");
-	check(
-		get(vars, "SIGNUP_ALLOWLIST")
+	const listed = (key, login) =>
+		get(vars, key)
 			.split(",")
 			.map((s) => s.trim())
-			.includes(VERIFY_LOGIN),
-		`${VERIFY_LOGIN} is on SIGNUP_ALLOWLIST`,
+			.some((entry) => entry === login || (key === "SIGNUP_ALLOWLIST" && entry === "*"));
+	check(
+		listed("SIGNUP_ALLOWLIST", VERIFY_LOGIN) && listed("SIGNUP_ALLOWLIST", VERIFY_ADMIN_LOGIN),
+		`${VERIFY_LOGIN} and ${VERIFY_ADMIN_LOGIN} are on SIGNUP_ALLOWLIST`,
+		"dev.mjs stop && dev.mjs start (it adds them)",
+	);
+	check(
+		listed("ADMIN_LOGINS", VERIFY_ADMIN_LOGIN),
+		`${VERIFY_ADMIN_LOGIN} is on ADMIN_LOGINS`,
 		"dev.mjs stop && dev.mjs start (it adds it)",
 	);
 	return checks.every(Boolean);

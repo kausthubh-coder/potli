@@ -25,6 +25,14 @@ export function tarballUrl(origin: string, name: PackageName, version: string): 
 	return `${origin}/${name.full}/-/${tarballFileName(name, version)}`;
 }
 
+// What npm prints when it asks for something an admin took down (410 Gone). A version is named
+// when only that version was taken down.
+export function takenDownMessage(origin: string, name: PackageName, version?: string): string {
+	const what = version ? `${name.full}@${version}` : name.full;
+	const next = version ? " Use another version." : "";
+	return `${what} was taken down for breaking potli's terms and can't be installed.${next} Terms: ${origin}/terms`;
+}
+
 // Clients send "/@scope%2fname" (npm, bun), "/@scope%2Fname" (pnpm) or "/@scope/name". Routes
 // match the plain form, so the encoded slash after the scope is decoded before routing. Hono's
 // default path already applies decodeURI, which leaves "%2f" alone.

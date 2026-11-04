@@ -1,10 +1,10 @@
-import { useNavigate, useRouter } from "@tanstack/react-router";
+import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { Github } from "lucide-react";
 import { useId, useRef, useState } from "react";
 
 import { fieldError, fieldHint, primaryButton, secondaryButton, textInput } from "#/lib/form-styles";
 import { authClient } from "./auth-client";
-import { SIGNUP_CLOSED } from "./signup.logic";
+import { RATE_LIMITED, SIGNUP_CLOSED } from "./signup.logic";
 import { startGitHubSignIn } from "./UserMenu";
 
 type Props = {
@@ -18,6 +18,12 @@ function errorCopy(code: string): { title: string; body: string } {
 		return {
 			title: "Sign-up is closed for now",
 			body: "potli is open to a short list of GitHub accounts while it gets ready, and yours isn't on it yet. No account was created.",
+		};
+	}
+	if (code === RATE_LIMITED) {
+		return {
+			title: "Too many sign-in attempts",
+			body: "potli limits how often one network can sign in or create accounts. Wait a few minutes, then try again.",
 		};
 	}
 	if (code === "github_unavailable") {
@@ -59,7 +65,7 @@ export function SignInPage({ github, devSignIn, error }: Props) {
 					const { error: signInError } = await startGitHubSignIn("/settings");
 					if (signInError) {
 						setPending(false);
-						setGithubError("github_unavailable");
+						setGithubError(signInError.status === 429 ? RATE_LIMITED : "github_unavailable");
 					}
 				}}
 			>
@@ -67,6 +73,13 @@ export function SignInPage({ github, devSignIn, error }: Props) {
 				{pending ? "Opening GitHub…" : "Sign in with GitHub"}
 			</button>
 			{github ? null : <p className={`${fieldHint} mt-2`}>GitHub sign-in isn't set up on this server yet.</p>}
+			<p className={`${fieldHint} mt-4 text-pretty`}>
+				By signing in you agree to potli's{" "}
+				<Link to="/terms" className="text-foreground underline underline-offset-4 hover:text-primary">
+					terms
+				</Link>
+				.
+			</p>
 
 			{devSignIn ? <DevSignInForm /> : null}
 		</main>

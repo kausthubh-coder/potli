@@ -3,8 +3,43 @@ import { Link } from "@tanstack/react-router";
 import { buttonClass, StatusPage } from "#/features/site/StatusPage";
 import { splitPackageName } from "./packages.logic";
 
-export function PackageNotFound({ name, scopeExists }: { name: string; scopeExists: boolean }) {
+export function PackageNotFound({
+	name,
+	scopeExists,
+	takenDown,
+}: {
+	name: string;
+	scopeExists: boolean;
+	takenDown: boolean;
+}) {
 	const { scope, name: shortName } = splitPackageName(name);
+	if (takenDown) {
+		return (
+			<StatusPage
+				code="410"
+				title={
+					<>
+						<span className="font-mono text-[0.9em]">{name}</span> was taken down
+					</>
+				}
+				actions={
+					<>
+						<Link to="/terms" className={buttonClass("primary")}>
+							Read the terms
+						</Link>
+						<Link to="/scope/$scope" params={{ scope }} className={buttonClass("secondary")}>
+							See packages in @{scope}
+						</Link>
+					</>
+				}
+			>
+				<p>
+					It was taken down for breaking potli's terms. npm, pnpm and bun can't install it, and its version
+					numbers can't be published again.
+				</p>
+			</StatusPage>
+		);
+	}
 	return (
 		<StatusPage
 			code="404"

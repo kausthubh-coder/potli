@@ -2,11 +2,22 @@
 // tests can call them without the TanStack Start runtime.
 import { db } from "#/db";
 import { requireSessionUser } from "#/features/auth/session";
-import { createToken, revokeToken } from "./tokens.data";
+import { rateLimit, tryAgainIn, userSubject } from "#/lib/rate-limit";
+import { type CreatedToken, createToken, revokeToken } from "./tokens.data";
 
 // The owner is the session's user. Nothing in the input can name another user.
-export async function createTokenForRequest(headers: Headers, input: { name: string }) {
+export async function createTokenForRequest(
+	headers: Headers,
+	input: { name: string },
+): Promise<CreatedToken> {
 	const user = await requireSessionUser(headers);
+	const limited = await rateLimit("create-token", userSubject(user.id));
+	if (limited) {
+		return {
+			ok: false,
+			message: `You can create ${limited.max} tokens an hour. Try again ${tryAgainIn(limited.retryAfterSeconds)}.`,
+		};
+	}
 	return createToken(db, user.id, input.name);
 }
 

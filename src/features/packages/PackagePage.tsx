@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { ExternalLinkIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { ReportForm } from "#/features/moderation/ReportForm";
 import { DownloadsTile } from "./DownloadsTile";
 import { InstallBox } from "./InstallBox";
 import type { PackagePageData } from "./packages.data";
@@ -102,7 +103,10 @@ export function PackagePage({ pkg, origin, tab }: { pkg: PackagePageData; origin
 							Readme
 						</TabLink>
 						<TabLink tab="versions" current={tab} scope={scope} name={name}>
-							Versions <span className="ml-1 text-muted-foreground tabular-nums">{pkg.versions.length}</span>
+							Versions{" "}
+							<span className="ml-1 text-muted-foreground tabular-nums">
+								{pkg.versions.filter((v) => !v.takenDown).length}
+							</span>
 						</TabLink>
 					</nav>
 					{tab === "readme" ? <Readme html={pkg.readmeHtml} /> : <Versions pkg={pkg} />}
@@ -160,6 +164,11 @@ export function PackagePage({ pkg, origin, tab }: { pkg: PackagePageData; origin
 							</ul>
 						)}
 					</section>
+
+					<ReportForm
+						packageName={pkg.name}
+						versions={pkg.versions.filter((v) => !v.takenDown).map((v) => v.version)}
+					/>
 				</aside>
 			</div>
 		</main>
@@ -253,9 +262,12 @@ function Versions({ pkg }: { pkg: PackagePageData }) {
 							<tr key={v.version}>
 								<td className="py-2.5 pr-4">
 									<span className="flex flex-wrap items-center gap-2">
-										<span className={`font-mono ${isPrerelease(v.version) ? "text-muted-foreground" : ""}`}>
+										<span
+											className={`font-mono ${isPrerelease(v.version) || v.takenDown ? "text-muted-foreground" : ""} ${v.takenDown ? "line-through" : ""}`}
+										>
 											{v.version}
 										</span>
+										{v.takenDown && <Tag>taken down</Tag>}
 										{v.tags.map((tag) => (
 											<Tag key={tag} accent={tag === "latest"}>
 												{tag}
@@ -269,7 +281,7 @@ function Versions({ pkg }: { pkg: PackagePageData }) {
 									</time>
 								</td>
 								<td className="py-2.5 text-right text-muted-foreground tabular-nums">
-									{formatBytes(v.size)}
+									{v.takenDown ? "Not served" : formatBytes(v.size)}
 								</td>
 							</tr>
 						))}

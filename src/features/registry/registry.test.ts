@@ -1,74 +1,15 @@
 import { env } from "cloudflare:workers";
-import { Buffer } from "node:buffer";
 import { and, eq } from "drizzle-orm";
 import { describe, expect, it, vi } from "vitest";
 
 import { db } from "#/db";
-import { distTags, downloads, packages, scopes, tokens, user, versions } from "#/db/schema";
-import { generateToken, hashToken } from "#/features/tokens/tokens.logic";
+import { distTags, downloads, packages, tokens, versions } from "#/db/schema";
+import { generateToken } from "#/features/tokens/tokens.logic";
 import { registry } from "./registry.api";
+import { publishBody, put, randomTarball, seedUser } from "./registry.testing";
 
 // Every test file gets fresh local D1 and R2; tests in this file share them, so each test uses
 // its own users, scopes and package names.
-
-// A user who owns the scope matching their username and has one publish token.
-async function seedUser(username: string) {
-	const id = `user-${username}`;
-	const token = generateToken();
-	await db.insert(user).values({ id, name: username, email: `${username}@example.com`, username });
-	await db.insert(scopes).values({ name: username, ownerId: id, kind: "user" });
-	await db
-		.insert(tokens)
-		.values({ id: `token-${username}`, userId: id, name: "laptop", tokenHash: await hashToken(token) });
-	return { id, username, token };
-}
-
-function randomTarball(size = 4096): Uint8Array<ArrayBuffer> {
-	return crypto.getRandomValues(new Uint8Array(size));
-}
-
-// The body `npm publish` sends (libnpmpublish): one version, its tarball as a base64 attachment
-// keyed "@scope/name-1.0.0.tgz", and dist.tarball pointing wherever the client thinks it goes.
-async function publishBody(
-	name: string,
-	version: string,
-	tarball: Uint8Array<ArrayBuffer>,
-	options: { tags?: Record<string, string>; description?: string } = {},
-) {
-	const integrity = `sha512-${Buffer.from(await crypto.subtle.digest("SHA-512", tarball)).toString("base64")}`;
-	const shasum = Buffer.from(await crypto.subtle.digest("SHA-1", tarball)).toString("hex");
-	const description = options.description ?? "A test package";
-	return {
-		_id: name,
-		name,
-		description,
-		"dist-tags": options.tags ?? { latest: version },
-		versions: {
-			[version]: {
-				name,
-				version,
-				description,
-				dependencies: { hono: "^4.0.0" },
-				_id: `${name}@${version}`,
-				dist: { integrity, shasum, tarball: `http://localhost:3455/${name}/-/${name}-${version}.tgz` },
-			},
-		},
-		readme: `# ${name} ${version}`,
-		_attachments: {
-			[`${name}-${version}.tgz`]: {
-				content_type: "application/octet-stream",
-				data: Buffer.from(tarball).toString("base64"),
-				length: tarball.byteLength,
-			},
-		},
-	};
-}
-
-function put(path: string, body: unknown, token?: string) {
-	const headers: Record<string, string> = { "Content-Type": "application/json" };
-	if (token) headers.Authorization = `Bearer ${token}`;
-	return registry.request(path, { method: "PUT", headers, body: JSON.stringify(body) });
-}
 
 // Seeds a published version the way publish stores it: tarball in R2, manifest without
 // dist.tarball in D1.

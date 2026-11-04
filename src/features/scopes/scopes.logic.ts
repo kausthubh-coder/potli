@@ -155,7 +155,7 @@ export function checkScopeName(input: string): ScopeNameCheck {
 export type ScopeAvailability =
 	| { ok: true; name: string }
 	| (Extract<ScopeNameCheck, { ok: false }> & { name: string })
-	| { ok: false; reason: "taken" | "yours"; message: string; name: string };
+	| { ok: false; reason: "taken" | "yours" | "rate-limited"; message: string; name: string };
 
 // The free check: valid, not reserved, and nobody owns it yet.
 export async function checkScopeAvailable(

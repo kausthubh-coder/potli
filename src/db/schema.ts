@@ -138,6 +138,10 @@ export const packages = sqliteTable(
 			.default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
 			.$onUpdate(() => new Date())
 			.notNull(),
+		// Set when an admin takes the whole package down. Its rows stay, so nobody can publish its
+		// name or versions again, but the registry and the website stop serving it.
+		takenDownAt: integer("taken_down_at", { mode: "timestamp_ms" }),
+		takenDownBy: text("taken_down_by").references(() => user.id),
 	},
 	(table) => [index("packages_scope_idx").on(table.scope)],
 );
@@ -161,6 +165,10 @@ export const versions = sqliteTable(
 			.notNull()
 			.references(() => user.id),
 		publishedAt: createdAt(),
+		// Set when an admin takes this version down. The row stays so the version number can never be
+		// published again; the packument leaves it out and its tarball is no longer served.
+		takenDownAt: integer("taken_down_at", { mode: "timestamp_ms" }),
+		takenDownBy: text("taken_down_by").references(() => user.id),
 	},
 	(table) => [primaryKey({ columns: [table.packageName, table.version] })],
 );
@@ -204,4 +212,39 @@ export const downloads = sqliteTable(
 		count: integer("count").notNull().default(0),
 	},
 	(table) => [primaryKey({ columns: [table.packageName, table.day] })],
+);
+
+// Reports from the Report form on package pages, for an admin (ADMIN_LOGINS) to act on.
+export const reports = sqliteTable(
+	"reports",
+	{
+		id: text("id").primaryKey(),
+		packageName: text("package_name")
+			.notNull()
+			.references(() => packages.name),
+		version: text("version"), // null: the report is about the whole package
+		reason: text("reason", { enum: ["malware", "spam", "impersonation", "legal", "other"] }).notNull(),
+		details: text("details").notNull(),
+		// Null when the reporter wasn't signed in.
+		reporterId: text("reporter_id").references(() => user.id, { onDelete: "set null" }),
+		status: text("status", { enum: ["open", "removed", "dismissed"] })
+			.notNull()
+			.default("open"),
+		createdAt: createdAt(),
+		resolvedAt: integer("resolved_at", { mode: "timestamp_ms" }),
+		resolvedBy: text("resolved_by").references(() => user.id),
+	},
+	(table) => [index("reports_status_idx").on(table.status)],
+);
+
+// Fixed-window counters for the rate limits in src/lib/rate-limit.ts. One row per action and
+// subject ("publish:user:<id>", "sign-in:ip:<hash>"); a row older than a day is stale and deleted.
+export const rateLimits = sqliteTable(
+	"rate_limits",
+	{
+		key: text("key").primaryKey(),
+		windowStart: integer("window_start").notNull(), // ms since the epoch
+		count: integer("count").notNull(),
+	},
+	(table) => [index("rate_limits_window_start_idx").on(table.windowStart)],
 );

@@ -5,13 +5,19 @@ import { user } from "#/db/schema";
 import { auth } from "./auth";
 
 export function devSignInRequest(login: string, url = "http://localhost:3000/api/auth/dev/sign-in") {
-	return auth.handler(
-		new Request(url, {
-			method: "POST",
-			headers: { "content-type": "application/json", origin: new URL(url).origin },
-			body: JSON.stringify({ login }),
-		}),
-	);
+	return auth.handler(devSignInFetch(login, url));
+}
+
+// The request the dev sign-in form sends, from the IP address Cloudflare would put in
+// CF-Connecting-IP. Rate limits count per IP address.
+export function devSignInFetch(
+	login: string,
+	url = "http://localhost:3000/api/auth/dev/sign-in",
+	ip?: string,
+) {
+	const headers: Record<string, string> = { "content-type": "application/json", origin: new URL(url).origin };
+	if (ip) headers["cf-connecting-ip"] = ip;
+	return new Request(url, { method: "POST", headers, body: JSON.stringify({ login }) });
 }
 
 export function cookieHeaders(res: Response): Headers {
