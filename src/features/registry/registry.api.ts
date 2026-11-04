@@ -1,5 +1,5 @@
 import { env, waitUntil } from "cloudflare:workers";
-import { and, asc, count, eq, or, sql } from "drizzle-orm";
+import { and, asc, count, eq, isNull, or, sql } from "drizzle-orm";
 import { type Context, Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { getPath } from "hono/utils/url";
@@ -7,7 +7,13 @@ import { getPath } from "hono/utils/url";
 import { db } from "#/db";
 import { distTags, downloads, packages, scopes, user, versions } from "#/db/schema";
 import { authenticate, scopeOwnershipError, unauthorizedMessage } from "./registry.auth";
-import { decodeScopedSlash, type PackageName, parsePackageName, tarballUrl } from "./registry.names";
+import {
+	decodeScopedSlash,
+	type PackageName,
+	parsePackageName,
+	takenDownMessage,
+	tarballUrl,
+} from "./registry.names";
 import { isRecord, MAX_PUBLISH_BODY_BYTES, publish, SEMVER } from "./registry.publish";
 
 // The npm registry API. npm, pnpm, bun and yarn call these routes; the website never does.
@@ -41,12 +47,18 @@ registry.get(PKG, async (c) => {
 	if (!pkg) return c.json(NOT_FOUND, 404);
 
 	const origin = new URL(c.req.url).origin;
+	// Taken-down versions are left out, as if they were never published. Their rows stay so the
+	// version numbers can't be published again.
+	const servedRows = versionRows.filter((row) => row.takenDownAt === null);
+	if (pkg.takenDownAt || (versionRows.length > 0 && servedRows.length === 0)) {
+		return c.json({ error: takenDownMessage(origin, name) }, 410);
+	}
 	const versionDocs: Record<string, unknown> = {};
 	const time: Record<string, string> = {
 		created: pkg.createdAt.toISOString(),
 		modified: pkg.updatedAt.toISOString(),
 	};
-	for (const row of versionRows) {
+	for (const row of servedRows) {
 		const manifest = isRecord(row.manifest) ? row.manifest : {};
 		const dist = isRecord(manifest.dist) ? manifest.dist : {};
 		versionDocs[row.version] = {
@@ -76,11 +88,24 @@ registry.get(`${PKG}/-/:file`, async (c) => {
 	const version = file.slice(prefix.length, -".tgz".length);
 
 	const row = await db
-		.select({ tarballKey: versions.tarballKey })
+		.select({
+			tarballKey: versions.tarballKey,
+			versionTakenDownAt: versions.takenDownAt,
+			packageTakenDownAt: packages.takenDownAt,
+		})
 		.from(versions)
+		.innerJoin(packages, eq(packages.name, versions.packageName))
 		.where(and(eq(versions.packageName, name.full), eq(versions.version, version)))
 		.get();
 	if (!row) return c.json(NOT_FOUND, 404);
+	// A lockfile still points here after a takedown, so say why the install fails.
+	if (row.packageTakenDownAt || row.versionTakenDownAt) {
+		const origin = new URL(c.req.url).origin;
+		return c.json(
+			{ error: takenDownMessage(origin, name, row.packageTakenDownAt ? undefined : version) },
+			410,
+		);
+	}
 
 	const object = await env.TARBALLS.get(row.tarballKey);
 	if (!object) throw new Error(`Tarball missing from R2: ${row.tarballKey}`);
@@ -153,10 +178,14 @@ registry.get(DIST_TAGS, async (c) => {
 	const name = packageNameFrom(c.req.param("scope"), c.req.param("name"));
 	if (!name) return c.json(NOT_FOUND, 404);
 	const [[pkg], tagRows] = await db.batch([
-		db.select({ name: packages.name }).from(packages).where(eq(packages.name, name.full)),
+		db
+			.select({ name: packages.name, takenDownAt: packages.takenDownAt })
+			.from(packages)
+			.where(eq(packages.name, name.full)),
 		db.select().from(distTags).where(eq(distTags.packageName, name.full)),
 	]);
 	if (!pkg) return c.json(NOT_FOUND, 404);
+	if (pkg.takenDownAt) return c.json({ error: takenDownMessage(new URL(c.req.url).origin, name) }, 410);
 	return c.json(Object.fromEntries(tagRows.map((row) => [row.tag, row.version])));
 });
 
@@ -167,8 +196,13 @@ async function authorizeTagChange(c: Context, scope: string, base: string): Prom
 	const name = packageNameFrom(scope, base);
 	const pkg =
 		name &&
-		(await db.select({ name: packages.name }).from(packages).where(eq(packages.name, name.full)).get());
+		(await db
+			.select({ name: packages.name, takenDownAt: packages.takenDownAt })
+			.from(packages)
+			.where(eq(packages.name, name.full))
+			.get());
 	if (!name || !pkg) return c.json(NOT_FOUND, 404);
+	if (pkg.takenDownAt) return c.json({ error: takenDownMessage(new URL(c.req.url).origin, name) }, 410);
 	const ownershipError = await scopeOwnershipError(tokenUser.id, name.scope);
 	if (ownershipError) return c.json({ error: ownershipError }, 403);
 	return name;
@@ -192,12 +226,18 @@ registry.put(`${DIST_TAGS}/:tag`, async (c) => {
 		return c.json({ error: 'Send the version as a JSON string, like "1.2.0".' }, 400);
 	}
 	const published = await db
-		.select({ version: versions.version })
+		.select({ version: versions.version, takenDownAt: versions.takenDownAt })
 		.from(versions)
 		.where(and(eq(versions.packageName, name.full), eq(versions.version, version)))
 		.get();
 	if (!published) {
 		return c.json({ error: `${name.full}@${version} is not published. Tag a version that is.` }, 404);
+	}
+	if (published.takenDownAt) {
+		return c.json(
+			{ error: `${name.full}@${version} was taken down, so it can't be tagged. Tag another version.` },
+			410,
+		);
 	}
 
 	await db.batch([
@@ -242,9 +282,12 @@ registry.get("/-/v1/search", async (c) => {
 	const size = Math.min(Math.max(Number.parseInt(c.req.query("size") ?? "", 10) || 20, 1), 250);
 	const from = Math.max(Number.parseInt(c.req.query("from") ?? "", 10) || 0, 0);
 	const pattern = `%${text.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
-	const matches = or(
-		sql`${packages.name} LIKE ${pattern} ESCAPE '\\'`,
-		sql`${packages.description} LIKE ${pattern} ESCAPE '\\'`,
+	const matches = and(
+		isNull(packages.takenDownAt),
+		or(
+			sql`${packages.name} LIKE ${pattern} ESCAPE '\\'`,
+			sql`${packages.description} LIKE ${pattern} ESCAPE '\\'`,
+		),
 	);
 
 	const [rows, [{ total }]] = await db.batch([

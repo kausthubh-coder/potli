@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, type SQL, sql } from "drizzle-orm";
 
 import { db } from "#/db";
 import { distTags, downloads, packages } from "#/db/schema";
@@ -15,8 +15,11 @@ export type PackageSummary = {
 	weeklyDownloads: number;
 };
 
-/** One row per package with its latest version and the past 7 days of downloads. */
-export function packageSummaries() {
+/**
+ * One row per package with its latest version and the past 7 days of downloads. Taken-down
+ * packages are always left out; `where` narrows the rest.
+ */
+export function packageSummaries(where?: SQL) {
 	const since = daysBefore(new Date(), 6);
 	return db
 		.select({
@@ -28,5 +31,5 @@ export function packageSummaries() {
 		})
 		.from(packages)
 		.leftJoin(distTags, and(eq(distTags.packageName, packages.name), eq(distTags.tag, "latest")))
-		.$dynamic();
+		.where(and(isNull(packages.takenDownAt), where));
 }

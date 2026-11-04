@@ -9,6 +9,7 @@ The maintained list of what a potli user can do, and how to prove each works. Re
 | Publish tokens on /settings | [tokens.md](tokens.md) | `journey.mjs` step 3 |
 | Package page and scope page | [package-page.md](package-page.md) | `journey.mjs` step 9, `shot.mjs` |
 | Search | [search.md](search.md) | `shot.mjs`, a short script |
+| Reports, takedowns, rate limits, terms | [moderation.md](moderation.md) | `moderation.mjs`, `shot.mjs /terms` |
 
 Not mapped yet: org scope claims on /settings (**Claim an org scope**, button **Claim scope**), the account menu, dist-tags (`npm dist-tag`), the theme toggle.
 

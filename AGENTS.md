@@ -102,6 +102,8 @@ Each feature lives in one folder with its UI, logic, data access and tests. Shar
 | Rule | Enforced by |
 |---|---|
 | Published versions never change | publish returns 409 for an existing version; registry test |
+| A takedown hides a version, never frees its number | takedown keeps the row, publish returns 409; moderation test |
+| Installs are never rate-limited | only write paths call `rateLimit`; rate-limit test |
 | Only scoped package names | registry routing; registry test |
 | Tarball URLs use the request origin, never a fixed domain | registry test |
 | Website paths never start with `/@` or `/-/` | `isRegistryPath` routing in `src/server.ts` |

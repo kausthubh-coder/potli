@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState } from "react";
 
 import { secondaryButton } from "#/lib/form-styles";
 import { authClient } from "./auth-client";
+import { RATE_LIMITED } from "./signup.logic";
 
 export function UserMenu() {
 	const { data, isPending } = authClient.useSession();
@@ -34,7 +35,10 @@ function SignInWithGitHub() {
 				// The sign-in page explains what went wrong (and offers dev sign-in locally).
 				if (error) {
 					setPending(false);
-					await navigate({ to: "/sign-in", search: { error: "github_unavailable" } });
+					await navigate({
+						to: "/sign-in",
+						search: { error: error.status === 429 ? RATE_LIMITED : "github_unavailable" },
+					});
 				}
 			}}
 		>

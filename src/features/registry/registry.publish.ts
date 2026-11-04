@@ -5,6 +5,7 @@ import type { Context } from "hono";
 
 import { db } from "#/db";
 import { distTags, packages, versions } from "#/db/schema";
+import { rateLimit, tryAgainIn, userSubject } from "#/lib/rate-limit";
 import { authenticate, scopeOwnershipError, unauthorizedMessage } from "./registry.auth";
 import type { PackageName } from "./registry.names";
 
@@ -30,6 +31,18 @@ function optionalString(value: unknown): string | null {
 export async function publish(c: Context, name: PackageName): Promise<Response> {
 	const publisher = await authenticate(c.req.header("Authorization"));
 	if (!publisher) return c.json({ error: unauthorizedMessage(c.req.url, "publish") }, 401);
+
+	// Counted before the body is parsed, so a script can't make potli decode tarballs all day.
+	const limited = await rateLimit("publish", userSubject(publisher.id));
+	if (limited) {
+		c.header("Retry-After", String(limited.retryAfterSeconds));
+		return c.json(
+			{
+				error: `potli allows ${limited.max} publishes an hour per account, and you've used them. Try again ${tryAgainIn(limited.retryAfterSeconds)}.`,
+			},
+			429,
+		);
+	}
 
 	let body: unknown;
 	try {
@@ -74,12 +87,32 @@ export async function publish(c: Context, name: PackageName): Promise<Response> 
 	}
 
 	const [[existingPackage], [existingVersion]] = await db.batch([
-		db.select({ name: packages.name }).from(packages).where(eq(packages.name, name.full)),
 		db
-			.select({ version: versions.version })
+			.select({ name: packages.name, takenDownAt: packages.takenDownAt })
+			.from(packages)
+			.where(eq(packages.name, name.full)),
+		db
+			.select({ version: versions.version, takenDownAt: versions.takenDownAt })
 			.from(versions)
 			.where(and(eq(versions.packageName, name.full), eq(versions.version, version))),
 	]);
+	if (existingPackage?.takenDownAt) {
+		return c.json(
+			{
+				error: `${name.full} was taken down for breaking potli's terms, so nothing more can be published to it. Terms: ${new URL(c.req.url).origin}/terms`,
+			},
+			403,
+		);
+	}
+	// A taken-down version keeps its row, so its number stays used forever, like any other.
+	if (existingVersion?.takenDownAt) {
+		return c.json(
+			{
+				error: `${name.full}@${version} was taken down, and its version number can't be used again. Bump "version" in package.json and publish again.`,
+			},
+			409,
+		);
+	}
 	if (existingVersion) return versionExists(c, name, version);
 
 	const dist = isRecord(manifest.dist) ? manifest.dist : {};

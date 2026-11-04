@@ -13,6 +13,7 @@ Every helper is in `.agents/skills/verify-potli/scripts/` and runs from the chec
 |---|---|
 | `dev.mjs start\|status\|stop` | starts, checks and stops this checkout's dev server |
 | `journey.mjs` | the whole publish journey, 13 steps, evidence in `.artifacts/verify/<run>/` |
+| `moderation.mjs [--skip-burst]` | report, admin takedown, failing installs, the publish 429; evidence in `.artifacts/verify/<run>-moderation/` |
 | `shot.mjs <path> [--dark] [--width=390]` | opens one page signed out, screenshots it, prints status, h1, SSR fallback, console errors |
 | `browser.mjs` | prints the browser the others use |
 
@@ -24,7 +25,7 @@ The checkout must be set up first (`worktree-potli`: `bun run setup`). Then:
 node .agents/skills/verify-potli/scripts/dev.mjs start
 ```
 
-It sets `DEV_LOGIN=1` and adds `potli-verify` to `SIGNUP_ALLOWLIST` in `.dev.vars` when they're missing (both local-only), starts `bun run dev` in its own process group, waits until `/` renders, then runs the doctor below. Ready looks like `dev: ready on http://localhost:<PORT> after 10s` and six `ok` lines. The first start in a checkout takes up to a minute on Windows (Vite optimizes dependencies). The dev log is `.wrangler/verify/dev.log`.
+It sets `DEV_LOGIN=1`, adds `potli-verify` and `potli-verify-admin` to `SIGNUP_ALLOWLIST` and `potli-verify-admin` to `ADMIN_LOGINS` in `.dev.vars` when they're missing (all local-only), starts `bun run dev` in its own process group, waits until `/` renders, then runs the doctor below. Ready looks like `dev: ready on http://localhost:<PORT> after 10s` and seven `ok` lines. The first start in a checkout takes up to a minute on Windows (Vite optimizes dependencies). The dev log is `.wrangler/verify/dev.log`.
 
 One dev server takes about 1.3 GB. On the 8 GB cloud machine, run one at a time and stop it when you're done.
 
@@ -83,6 +84,8 @@ node .agents/skills/verify-potli/scripts/dev.mjs stop
 Stops only the process group `start` made (vite and workerd with it). It leaves `.artifacts/verify/` alone. Published `@potli-verify/ms` versions, the `potli-verify` user and its tokens stay in this checkout's local D1 and R2, which no other checkout sees. To start from an empty database: stop, delete `.wrangler/state`, run `bun run setup`.
 
 ## Gotchas
+
+- Rate limits count in this checkout's D1 per clock hour. `moderation.mjs`'s publish loop uses up `potli-verify-admin`'s 60 publishes, and each journey run creates a token for `potli-verify` (10 an hour). To reset: `bunx wrangler d1 execute DB --local --command "DELETE FROM rate_limits"`.
 
 - `bun run seed` reads `critly`, `megha` and `kriyan` next to the main checkout. A bare cloud clone has none: the seed step fails (so the journey exits 1), the seeded-page step is skipped, and the rest still runs; report the seed failure, don't call the run green. Set `POTLI_SEED_SOURCES` to a folder that has them.
 - Step 5 downloads `ms` from registry.npmjs.org, so the journey needs the internet.

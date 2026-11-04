@@ -10,9 +10,11 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ScopeScopeRouteImport } from './routes/scope/$scope'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as PackageScopeNameRouteImport } from './routes/package/$scope/$name'
@@ -20,6 +22,11 @@ import { Route as PackageScopeNameRouteImport } from './routes/package/$scope/$n
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SearchRoute = SearchRouteImport.update({
@@ -35,6 +42,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ScopeScopeRoute = ScopeScopeRouteImport.update({
@@ -55,18 +67,22 @@ const PackageScopeNameRoute = PackageScopeNameRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
+  '/terms': typeof TermsRoute
   '/scope/$scope': typeof ScopeScopeRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/package/$scope/$name': typeof PackageScopeNameRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
+  '/terms': typeof TermsRoute
   '/scope/$scope': typeof ScopeScopeRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/package/$scope/$name': typeof PackageScopeNameRoute
@@ -74,9 +90,11 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
+  '/terms': typeof TermsRoute
   '/scope/$scope': typeof ScopeScopeRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/package/$scope/$name': typeof PackageScopeNameRoute
@@ -85,27 +103,33 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/search'
     | '/settings'
     | '/sign-in'
+    | '/terms'
     | '/scope/$scope'
     | '/api/auth/$'
     | '/package/$scope/$name'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin'
     | '/search'
     | '/settings'
     | '/sign-in'
+    | '/terms'
     | '/scope/$scope'
     | '/api/auth/$'
     | '/package/$scope/$name'
   id:
     | '__root__'
     | '/'
+    | '/admin'
     | '/search'
     | '/settings'
     | '/sign-in'
+    | '/terms'
     | '/scope/$scope'
     | '/api/auth/$'
     | '/package/$scope/$name'
@@ -113,9 +137,11 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
   SignInRoute: typeof SignInRoute
+  TermsRoute: typeof TermsRoute
   ScopeScopeRoute: typeof ScopeScopeRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   PackageScopeNameRoute: typeof PackageScopeNameRoute
@@ -128,6 +154,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/search': {
@@ -149,6 +182,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-in'
       fullPath: '/sign-in'
       preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/scope/$scope': {
@@ -177,9 +217,11 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
   SignInRoute: SignInRoute,
+  TermsRoute: TermsRoute,
   ScopeScopeRoute: ScopeScopeRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   PackageScopeNameRoute: PackageScopeNameRoute,

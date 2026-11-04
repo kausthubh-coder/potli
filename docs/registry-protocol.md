@@ -63,6 +63,27 @@ Files: `registry.api.ts` (routes), `registry.publish.ts` (publish checks and wri
   `waitUntil` after the response. A version row whose R2 object is missing is a 500.
 - Versions are immutable, so tarballs carry `Cache-Control: public, max-age=31536000, immutable`.
   Packuments change on publish and on dist-tag changes.
+- Reads are never rate-limited: packuments, tarballs, dist-tags, search, ping.
+
+## Takedowns
+
+An admin (`ADMIN_LOGINS`) can take down one version or a whole package from `/admin`, usually
+from a report. Nothing is deleted: the D1 rows and the R2 tarball stay, so the name and the
+version numbers are never published again. Published versions never change; a takedown only
+stops serving one.
+
+- A taken-down version is left out of the packument's `versions` and `time`, as if it were never
+  published. Its dist-tags are deleted; when `latest` pointed at it, `latest` moves to the newest
+  remaining release (or the newest prerelease if no release is left), and the package's
+  description and readme come from that version's manifest.
+- Its tarball URL answers `410 { "error": "@scope/name@1.0.1 was taken down for breaking potli's
+  terms and can't be installed. Use another version. Terms: <origin>/terms" }`. A lockfile that
+  pins it fails with that message. `npm install @scope/name@1.0.1` gets the packument without
+  it and fails with npm's own "No matching version".
+- A taken-down package, or one whose every version is taken down, answers `410` with the same
+  message minus the version for its packument, every tarball and `dist-tags`. Search leaves it out.
+- Publishing a taken-down version number again is a `409` that says so. Publishing anything to a
+  taken-down package is a `403`. Tagging a taken-down version is a `410`.
 
 ## Publish (write path, token auth)
 
@@ -89,13 +110,17 @@ Checks before writing anything, in this order:
 
 1. Token valid (SHA-256 of it matches `tokens.token_hash`); else 401. Every authenticated request
    sets `tokens.last_used_at`.
+   Then the publish rate limit: 60 per account per clock hour, counted before the body is parsed;
+   else `429` with `Retry-After` and a message that says when to try again. npm 10 retries a 429
+   twice (about 10 s, then 60 s) before it prints the message.
 2. The body is JSON with exactly one version and one attachment; else 400.
 3. The name in the URL, `name`, the version manifest's `name` and `_id` (when sent) all agree;
    else 400.
 4. The scope exists and the token's user owns it; else 403. The message differs for an unclaimed
-   scope and someone else's scope.
+   scope and someone else's scope. A taken-down package is also a 403.
 5. The version key equals the manifest's `version` and is valid semver (semver.org's regex);
-   else 400. A version already in D1 is a 409: versions are immutable.
+   else 400. A version already in D1 is a 409: versions are immutable. A taken-down version is
+   still in D1, so it's a 409 too, with a message that says it was taken down.
 6. The tarball is at most 10 MB; else 413. The request body is capped at 16 MB while it streams in
    (Hono `bodyLimit`), also 413.
 7. The decoded tarball's sha512 and sha1 equal `dist.integrity` and `dist.shasum` exactly; else 400.

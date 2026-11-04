@@ -15,14 +15,12 @@ export const searchPackages = createServerFn({ method: "GET" })
 		const query = data.q;
 		if (!query) return { query, results: [] as PackageSummary[], renderedAt: new Date() };
 		const pattern = containsPattern(query);
-		const rows = await packageSummaries()
-			.where(
-				or(
-					sql`lower(${packages.name}) like ${pattern} escape '\\'`,
-					sql`lower(${packages.description}) like ${pattern} escape '\\'`,
-				),
-			)
-			.limit(200);
+		const rows = await packageSummaries(
+			or(
+				sql`lower(${packages.name}) like ${pattern} escape '\\'`,
+				sql`lower(${packages.description}) like ${pattern} escape '\\'`,
+			),
+		).limit(200);
 		const results = rows
 			.map((row) => ({ row, rank: matchRank(query, row.name, row.description) }))
 			.sort((a, b) => a.rank - b.rank || b.row.weeklyDownloads - a.row.weeklyDownloads)

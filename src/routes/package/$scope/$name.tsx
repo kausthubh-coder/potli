@@ -40,12 +40,13 @@ export const Route = createFileRoute("/package/$scope/$name")({
 	},
 	component: PackageRoute,
 	notFoundComponent: ({ data }) => {
-		const info = data as { name?: string; scopeExists?: boolean } | undefined;
+		const info = data as { name?: string; scopeExists?: boolean; takenDown?: boolean } | undefined;
 		const params = Route.useParams();
 		return (
 			<PackageNotFound
 				name={info?.name ?? `${params.scope}/${params.name}`}
 				scopeExists={Boolean(info?.scopeExists)}
+				takenDown={Boolean(info?.takenDown)}
 			/>
 		);
 	},
